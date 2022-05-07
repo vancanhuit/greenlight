@@ -9,7 +9,10 @@ type Models struct {
 	Movies MovieModel
 }
 
-var ErrRecordNotFound = errors.New("models: record not found")
+var (
+	ErrRecordNotFound = errors.New("record not found")
+	ErrEditConflict   = errors.New("edit conflict")
+)
 
 func NewModels(db *sql.DB) Models {
 	return Models{
