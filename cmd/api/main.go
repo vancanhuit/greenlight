@@ -10,7 +10,8 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/jackc/pgx/v4/stdlib"
+	_ "github.com/lib/pq"
+	"github.com/vancanhuit/greenlight/internal/data"
 )
 
 const version = "1.0.0"
@@ -29,10 +30,11 @@ type config struct {
 type application struct {
 	config config
 	logger *log.Logger
+	models data.Models
 }
 
 func openDB(cfg config) (*sql.DB, error) {
-	db, err := sql.Open("pgx", cfg.db.dsn)
+	db, err := sql.Open("postgres", cfg.db.dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -84,6 +86,7 @@ func main() {
 	app := application{
 		config: cfg,
 		logger: logger,
+		models: data.NewModels(db),
 	}
 
 	srv := &http.Server{
