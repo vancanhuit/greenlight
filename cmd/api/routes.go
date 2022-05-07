@@ -17,6 +17,7 @@ func (app *application) routes() http.Handler {
 	})
 
 	r.Get("/v1/healthcheck", app.healtcheckHandler)
+	r.Get("/v1/movies", app.listMoviesHandler)
 	r.Get("/v1/movies/{id}", app.showMovieHandler)
 	r.Post("/v1/movies", app.createMovieHandler)
 	r.Patch("/v1/movies/{id}", app.updateMovieHandler)

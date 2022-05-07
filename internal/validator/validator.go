@@ -52,3 +52,13 @@ func Unique[T comparable](values []T) bool {
 
 	return len(values) == len(uniqueValues)
 }
+
+func In[T comparable](v T, values ...T) bool {
+	for i := range values {
+		if v == values[i] {
+			return true
+		}
+	}
+
+	return false
+}
