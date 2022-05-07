@@ -1,5 +1,6 @@
 pwd = $(shell pwd)
 
+.PHONY: db
 db:
 	docker container run --detach \
 						 --name db \
