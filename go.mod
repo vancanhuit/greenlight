@@ -9,4 +9,12 @@ require (
 
 require golang.org/x/time v0.0.0-20220411224347-583f2d630306
 
-require golang.org/x/crypto v0.0.0-20220507011949-2cf3adece122
+require (
+	github.com/go-mail/mail/v2 v2.3.0
+	golang.org/x/crypto v0.0.0-20220507011949-2cf3adece122
+)
+
+require (
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
+	gopkg.in/mail.v2 v2.3.1 // indirect
+)
