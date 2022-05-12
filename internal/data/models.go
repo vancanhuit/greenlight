@@ -7,15 +7,18 @@ import (
 
 type Models struct {
 	Movies MovieModel
+	Users  UserModel
 }
 
 var (
 	ErrRecordNotFound = errors.New("record not found")
 	ErrEditConflict   = errors.New("edit conflict")
+	ErrDuplicateEmail = errors.New("duplicate email")
 )
 
 func NewModels(db *sql.DB) Models {
 	return Models{
 		Movies: MovieModel{DB: db},
+		Users:  UserModel{DB: db},
 	}
 }

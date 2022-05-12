@@ -8,3 +8,5 @@ require (
 )
 
 require golang.org/x/time v0.0.0-20220411224347-583f2d630306
+
+require golang.org/x/crypto v0.0.0-20220507011949-2cf3adece122

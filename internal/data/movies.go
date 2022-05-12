@@ -42,7 +42,7 @@ func ValidateMovie(v *validator.Validator, movie *Movie) {
 	v.Check(validator.Unique(movie.Genres), "genres", "must not contain duplicate values")
 }
 
-func (m *MovieModel) Insert(movie *Movie) error {
+func (m MovieModel) Insert(movie *Movie) error {
 	query := `INSERT INTO movies (title, year, runtime, genres)
 	VALUES ($1, $2, $3, $4)
 	RETURNING id, created_at, version`
@@ -64,7 +64,7 @@ func (m *MovieModel) Insert(movie *Movie) error {
 	)
 }
 
-func (m *MovieModel) Get(id int64) (*Movie, error) {
+func (m MovieModel) Get(id int64) (*Movie, error) {
 	if id < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -100,7 +100,7 @@ func (m *MovieModel) Get(id int64) (*Movie, error) {
 	return &movie, nil
 }
 
-func (m *MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, Metadata, error) {
+func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, Metadata, error) {
 	query := fmt.Sprintf(`SELECT count(*) OVER(), id, created_at, title, year, runtime, genres, version
 	FROM movies
 	WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '') AND (genres @> $2 OR $2 = '{}')
@@ -152,7 +152,7 @@ func (m *MovieModel) GetAll(title string, genres []string, filters Filters) ([]*
 	return movies, metadata, nil
 }
 
-func (m *MovieModel) Update(movie *Movie) error {
+func (m MovieModel) Update(movie *Movie) error {
 	query := `UPDATE movies
 	SET title = $1, year = $2, runtime = $3, genres = $4, version = version + 1
 	WHERE id = $5 AND version = $6
@@ -183,7 +183,7 @@ func (m *MovieModel) Update(movie *Movie) error {
 	return nil
 }
 
-func (m *MovieModel) Delete(id int64) error {
+func (m MovieModel) Delete(id int64) error {
 	if id < 1 {
 		return ErrRecordNotFound
 	}
