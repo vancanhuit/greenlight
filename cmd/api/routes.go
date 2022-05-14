@@ -21,11 +21,11 @@ func (app *application) routes() http.Handler {
 	r.Use(app.authenticate)
 
 	r.Get("/v1/healthcheck", app.healtcheckHandler)
-	r.Get("/v1/movies", app.listMoviesHandler)
-	r.Get("/v1/movies/{id}", app.showMovieHandler)
-	r.Post("/v1/movies", app.createMovieHandler)
-	r.Patch("/v1/movies/{id}", app.updateMovieHandler)
-	r.Delete("/v1/movies/{id}", app.deleteMovieHandler)
+	r.With(app.requirePermissions("movies:read")).Get("/v1/movies", app.listMoviesHandler)
+	r.With(app.requirePermissions("movies:read")).Get("/v1/movies/{id}", app.showMovieHandler)
+	r.With(app.requirePermissions("movies:write")).Post("/v1/movies", app.createMovieHandler)
+	r.With(app.requirePermissions("movies:write")).Patch("/v1/movies/{id}", app.updateMovieHandler)
+	r.With(app.requirePermissions("movies:write")).Delete("/v1/movies/{id}", app.deleteMovieHandler)
 
 	r.Post("/v1/users", app.registerUserHandler)
 	r.Put("/v1/users/activated", app.activateUserHandler)

@@ -21,3 +21,9 @@ migrate/up:
 	migrate \
 	-path=$(pwd)/migrations \
 	-database=postgres://dev:dev@localhost:5432/greenlight?sslmode=disable up
+
+.PHONY: migrate/down
+migrate/down:
+	migrate \
+	-path=$(pwd)/migrations \
+	-database=postgres://dev:dev@localhost:5432/greenlight?sslmode=disable down
