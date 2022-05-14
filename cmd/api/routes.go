@@ -18,6 +18,7 @@ func (app *application) routes() http.Handler {
 
 	r.Use(app.recoverPanic)
 	r.Use(app.rateLimit)
+	r.Use(app.authenticate)
 
 	r.Get("/v1/healthcheck", app.healtcheckHandler)
 	r.Get("/v1/movies", app.listMoviesHandler)
@@ -28,6 +29,8 @@ func (app *application) routes() http.Handler {
 
 	r.Post("/v1/users", app.registerUserHandler)
 	r.Put("/v1/users/activated", app.activateUserHandler)
+
+	r.Post("/v1/tokens/authentication", app.createAuthenticationTokenHandler)
 
 	return r
 }
