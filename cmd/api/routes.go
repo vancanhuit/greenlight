@@ -1,6 +1,7 @@
 package main
 
 import (
+	"expvar"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,6 +17,7 @@ func (app *application) routes() http.Handler {
 		app.methodNotAllowedResponse(w, r)
 	})
 
+	r.Use(app.metrics)
 	r.Use(app.recoverPanic)
 	r.Use(app.enableCORS)
 	r.Use(app.rateLimit)
@@ -32,6 +34,8 @@ func (app *application) routes() http.Handler {
 	r.Put("/v1/users/activated", app.activateUserHandler)
 
 	r.Post("/v1/tokens/authentication", app.createAuthenticationTokenHandler)
+
+	r.Get("/debug/vars", expvar.Handler().ServeHTTP)
 
 	return r
 }
