@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE EXTENSION IF NOT EXISTS citext;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -8,4 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash bytea NOT NULL,
     activated bool NOT NULL,
     version integer NOT NULL DEFAULT 1
-)
+);
+
+-- +goose Down
+DROP TABLE IF EXISTS users;
+DROP EXTENSION IF EXISTS citext;
