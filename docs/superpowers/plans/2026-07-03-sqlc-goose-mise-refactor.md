@@ -584,11 +584,19 @@ func NewModels(pool *pgxpool.Pool) Models {
 	q := db.New(pool)
 	return Models{
 		Movies:      MovieModel{q: q, pool: pool},
-		Users:       UserModel{q: q},
-		Tokens:      TokenModel{q: q},
-		Permissions: PermissionModel{q: q},
+		Users:       UserModel{q: q, pool: pool},
+		Tokens:      TokenModel{q: q, pool: pool},
+		Permissions: PermissionModel{q: q, pool: pool},
 	}
 }
+```
+
+Note: in Task 4, `UserModel`/`TokenModel`/`PermissionModel` carry both `q` and
+`pool` fields; their Task 4 bodies use `pool` (raw SQL). Tasks 5-7 switch each
+to `q` (sqlc) and drop the now-unused `pool` field **and** the corresponding
+`pool: pool` argument on that struct's line in `NewModels` above.
+
+```go
 ```
 
 - [ ] **Step 7: Rewrite `internal/data/movies.go` method bodies**
@@ -748,12 +756,31 @@ func (m MovieModel) Delete(id int64) error {
 
 Note: `Movie.Runtime` is the `Runtime` type (int32 underlying). sqlc maps `integer` → `int32`; convert both ways. `Movie.Year`/`Version` are already `int32`, matching sqlc.
 
-- [ ] **Step 8: Build**
+- [ ] **Step 8: Mechanically swap users/tokens/permissions to raw pgxpool (keep build green)**
 
-Run: `go build ./...`
-Expected: compiles. (`users.go`, `tokens.go`, `permissions.go` still use the old `DB *sql.DB` field — they are ported in Tasks 5-7. To keep `main` green, this task ports movies only; Tasks 5-7 follow before removing `lib/pq` in Task 8. If the build breaks because `NewModels` no longer passes `*sql.DB`, port the other three structs' field type to `q *db.Queries` in the SAME PR with temporary method bodies that still work — see note below.)
+Because `NewModels` changed its signature, all four model structs must compile
+in this PR. Movies (Steps 6-7) already uses sqlc. For the other three, do a
+mechanical `database/sql`+`lib/pq` → `pgxpool` swap NOW (no behaviour change);
+Tasks 5-7 later replace these raw bodies with sqlc calls. The mechanical rules
+applied to each file: import `db "…/internal/data/sqlc"`, `"github.com/jackc/pgx/v5"`,
+`"github.com/jackc/pgx/v5/pgxpool"`; drop `"database/sql"` and `"github.com/lib/pq"`;
+struct field `DB *sql.DB` → `q *db.Queries` (unused this task) plus `pool *pgxpool.Pool`;
+`m.DB.QueryRowContext(ctx, q, a...)` → `m.pool.QueryRow(ctx, q, a...)`;
+`m.DB.ExecContext` → `m.pool.Exec`; `m.DB.QueryContext` → `m.pool.Query`;
+`pq.Array(x)` → `x`; `errors.Is(err, sql.ErrNoRows)` → `errors.Is(err, pgx.ErrNoRows)`;
+for `users_email_key` duplicate detection replace the brittle string comparison
+with `isUniqueViolation(err, "users_email_key")` (helper added in Task 5 Step 3 —
+add that helper to `models.go` in THIS task instead, moving its introduction earlier).
+`Result.RowsAffected()` on delete → the `pgconn.CommandTag` returned by `m.pool.Exec`,
+using `tag.RowsAffected()`.
 
-**Important sequencing note:** Because `NewModels` changes signature, all four models must at least *compile* in this PR. To keep tasks reviewable, this PR (Task 4) updates the three not-yet-ported structs (`UserModel`, `TokenModel`, `PermissionModel`) to hold `q *db.Queries` and temporarily keep their SQL by using `m.q` is not possible for raw SQL. Instead, keep them on the pool: give each a `pool *pgxpool.Pool` field too and leave their existing raw-SQL bodies running through `pool.Query`/`pool.Exec` until Tasks 5-7 convert them to sqlc queries. Simplest: in this PR, port all four to pgxpool raw queries (mechanical `database/sql`→`pgxpool` swap), then Tasks 5-7 replace raw SQL with sqlc query calls one model at a time. Update the plan executor: **do the raw pgxpool swap for users/tokens/permissions here so the build is green, then Tasks 5-7 move each to sqlc.**
+Apply the swap to `internal/data/users.go`, `internal/data/tokens.go`,
+`internal/data/permissions.go`. Keep every `Validate*` function and domain type
+unchanged. Add the `isUniqueViolation` helper (from Task 5 Step 3) to
+`internal/data/models.go` in this task.
+
+Then run: `go build ./...`
+Expected: compiles clean with movies on sqlc and the other three on raw pgxpool.
 
 - [ ] **Step 9: Smoke test against DB**
 
@@ -812,9 +839,10 @@ WHERE tokens.hash = $1 AND tokens.scope = $2 AND tokens.expiry > $3;
 Run: `mise run sqlc`
 Expected: new methods `InsertUser`, `GetUserByEmail`, `UpdateUser`, `GetUserForToken` on `Queries`.
 
-- [ ] **Step 3: Add a unique-violation helper in `internal/data/models.go`**
+- [ ] **Step 3: Ensure the unique-violation helper exists in `internal/data/models.go`**
 
-Append:
+This helper was introduced in Task 4 Step 8. If it is already present, skip this
+step. Otherwise append:
 
 ```go
 func isUniqueViolation(err error, constraint string) bool {
