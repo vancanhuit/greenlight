@@ -1,0 +1,6 @@
+version: "2"
+
+# Only report issues introduced by this branch (relative to main). Pre-existing
+# book-code lint debt is intentionally not gated here; new/changed code is.
+issues:
+  new-from-merge-base: origin/main

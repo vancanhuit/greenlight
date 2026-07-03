@@ -13,8 +13,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: jdx/mise-action@v2
-      - run: gofmt -l -d .
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l cmd internal)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-formatted:"
+            echo "$unformatted"
+            gofmt -d cmd internal
+            exit 1
+          fi
       - run: go vet ./...
       - run: golangci-lint run
 

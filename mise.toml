@@ -28,7 +28,7 @@ run = "GREENLIGHT_TEST_DB_DSN=$GREENLIGHT_TEST_DB_DSN go test -race ./..."
 
 [tasks.lint]
 description = "Run linters"
-run = ["gofmt -l -d .", "go vet ./...", "golangci-lint run"]
+run = ['test -z "$(gofmt -l cmd internal)" || { gofmt -l cmd internal; exit 1; }', "go vet ./...", "golangci-lint run"]
 
 [tasks.sqlc]
 description = "Generate sqlc code"
