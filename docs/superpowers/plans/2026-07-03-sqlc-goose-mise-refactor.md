@@ -6,12 +6,12 @@
 
 **Architecture:** Keep the `internal/data` model wrapper's public methods intact; swap their internals from `database/sql`+`lib/pq` to sqlc-generated code on a `pgxpool.Pool`. Migrations move to goose (same `migrations/` dir, also used as sqlc's schema source). Tooling moves from Makefile to `mise.toml`; local stacks defined in one `compose.yaml` with profiles + YAML anchors.
 
-**Tech Stack:** Go 1.22+, pgx/v5, sqlc, goose, mise, docker compose, mkcert, GitHub Actions, chi router (unchanged).
+**Tech Stack:** Go 1.26.4, pgx/v5, sqlc, goose, mise, docker compose, mkcert, GitHub Actions, chi router (unchanged).
 
 ## Global Constraints
 
 - Module path: `github.com/vancanhuit/greenlight` (verbatim).
-- Go floor: `go 1.22` in `go.mod`.
+- Go floor: `go 1.26.4` in `go.mod`.
 - Vendoring is used: run `go mod vendor` after every dependency change; CI checks it is consistent.
 - Each task = one branch → PR → CI → squash-merge → delete branch. Branch from `main`.
 - `main` must compile after every merged PR.
@@ -39,10 +39,11 @@
 
 ```toml
 [tools]
-go = "1.22"
-sqlc = "1.27.0"
-goose = "3.21.1"
-golangci-lint = "1.61.0"
+go = "1.26.4"
+sqlc = "1.31.1"
+"aqua:pressly/goose" = "3.27.2"
+golangci-lint = "2.12.2"
+mkcert = "1.4.4"
 
 [env]
 _.file = ".env"
@@ -455,8 +456,8 @@ git commit -m "feat: convert migrations to goose format"
 
 - [ ] **Step 1: Add pgx dependency**
 
-Run: `go get github.com/jackc/pgx/v5@latest && go mod edit -go=1.22`
-Expected: `go.mod` now requires `github.com/jackc/pgx/v5`.
+Run: `go get github.com/jackc/pgx/v5@latest`
+Expected: `go.mod` now requires `github.com/jackc/pgx/v5`. (The `go` directive is already `1.26.4`, set during the tooling task.)
 
 - [ ] **Step 2: Create `sqlc.yaml`**
 
@@ -1645,7 +1646,7 @@ git commit -m "test: add DB integration tests and CI test job"
 - remove lib/pq + re-vendor → Task 8 ✅
 - unit tests → Task 9 ✅
 - DB integration via compose stack, DSN-guarded → Task 10 ✅
-- Go 1.22 floor → Task 4 Step 1 ✅
+- Go 1.26.4 floor → go.mod set in Task 1; pgx added in Task 4 Step 1 ✅
 
 **Known verification points (flagged inline for the implementer):**
 - Task 4 Step 8: `NewModels` signature change forces all four model structs to compile in that PR — do the mechanical pgxpool swap for users/tokens/permissions in Task 4, then Tasks 5-7 convert each to sqlc.
