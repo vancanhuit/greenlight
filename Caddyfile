@@ -1,0 +1,4 @@
+localhost {
+    tls /certs/localhost.pem /certs/localhost-key.pem
+    reverse_proxy api-https:8000
+}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"expvar"
 	"flag"
 	"fmt"
@@ -12,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vancanhuit/greenlight/internal/data"
 	"github.com/vancanhuit/greenlight/internal/jsonlog"
 	"github.com/vancanhuit/greenlight/internal/mailer"
@@ -57,30 +56,34 @@ type application struct {
 	wg     sync.WaitGroup
 }
 
-func openDB(cfg config) (*sql.DB, error) {
-	db, err := sql.Open("postgres", cfg.db.dsn)
+func openDB(cfg config) (*pgxpool.Pool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	poolCfg, err := pgxpool.ParseConfig(cfg.db.dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	db.SetMaxOpenConns(cfg.db.maxOpenConns)
-	db.SetMaxIdleConns(cfg.db.maxIdleConns)
+	poolCfg.MaxConns = int32(cfg.db.maxOpenConns)
 
 	duration, err := time.ParseDuration(cfg.db.maxIdleTime)
 	if err != nil {
 		return nil, err
 	}
-	db.SetConnMaxIdleTime(duration)
+	poolCfg.MaxConnIdleTime = duration
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	err = db.PingContext(ctx)
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+
+	return pool, nil
 }
 
 func main() {
@@ -134,7 +137,7 @@ func main() {
 		return runtime.NumGoroutine()
 	}))
 	expvar.Publish("database", expvar.Func(func() any {
-		return db.Stats()
+		return db.Stat()
 	}))
 	expvar.Publish("timestamp", expvar.Func(func() any {
 		return time.Now().Unix()

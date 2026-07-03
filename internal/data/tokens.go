@@ -3,11 +3,11 @@ package data
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base32"
 	"math/rand"
 	"time"
 
+	db "github.com/vancanhuit/greenlight/internal/data/sqlc"
 	"github.com/vancanhuit/greenlight/internal/validator"
 )
 
@@ -25,7 +25,7 @@ type Token struct {
 }
 
 type TokenModel struct {
-	DB *sql.DB
+	q *db.Queries
 }
 
 func generateToken(userID int64, ttl time.Duration, scope string) (*Token, error) {
@@ -56,31 +56,25 @@ func ValidateTokenPlaintext(v *validator.Validator, tokenPlaintext string) {
 }
 
 func (m TokenModel) Insert(token *Token) error {
-	query := `INSERT INTO tokens (hash, user_id, expiry, scope)
-	VALUES ($1, $2, $3, $4)`
-
-	args := []interface{}{
-		token.Hash,
-		token.UserID,
-		token.Expiry,
-		token.Scope,
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	_, err := m.DB.ExecContext(ctx, query, args...)
-	return err
+	return m.q.InsertToken(ctx, db.InsertTokenParams{
+		Hash:   token.Hash,
+		UserID: token.UserID,
+		Expiry: token.Expiry,
+		Scope:  token.Scope,
+	})
 }
 
 func (m TokenModel) DeleteAllForUser(scope string, userID int64) error {
-	query := `DELETE FROM tokens WHERE scope = $1 AND user_id = $2`
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	_, err := m.DB.ExecContext(ctx, query, scope, userID)
-	return err
+	return m.q.DeleteAllTokensForUser(ctx, db.DeleteAllTokensForUserParams{
+		Scope:  scope,
+		UserID: userID,
+	})
 }
 
 func (m TokenModel) New(userID int64, ttl time.Duration, scope string) (*Token, error) {

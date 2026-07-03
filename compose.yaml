@@ -1,0 +1,75 @@
+x-postgres-base: &pg-base
+  image: postgres:16
+  restart: unless-stopped
+  environment:
+    POSTGRES_USER: dev
+    POSTGRES_PASSWORD: dev
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U dev"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+
+x-api-base: &api-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  environment:
+    GREENLIGHT_DB_DSN: postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable
+
+services:
+  postgres-dev:
+    <<: *pg-base
+    profiles: ["dev", "dev-https"]
+    environment:
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: greenlight
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  postgres-test:
+    <<: *pg-base
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: greenlight_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  api:
+    <<: *api-base
+    profiles: ["dev"]
+    command: ["-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable", "-port=8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+
+  api-https:
+    <<: *api-base
+    profiles: ["dev-https"]
+    command: ["-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable", "-port=8000"]
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2
+    profiles: ["dev-https"]
+    ports:
+      - "443:443"
+    volumes:
+      - ./.certs:/certs:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - api-https
+
+volumes:
+  pgdata:
