@@ -3,10 +3,12 @@ package data
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	db "github.com/vancanhuit/greenlight/internal/data/sqlc"
 	"github.com/vancanhuit/greenlight/internal/validator"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -27,7 +29,8 @@ type User struct {
 }
 
 type UserModel struct {
-	DB *sql.DB
+	q    *db.Queries
+	pool *pgxpool.Pool
 }
 
 var AnonymousUser = &User{}
@@ -102,14 +105,14 @@ func (m UserModel) Insert(user *User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, query, args...).Scan(
+	err := m.pool.QueryRow(ctx, query, args...).Scan(
 		&user.ID,
 		&user.CreatedAt,
 		&user.Version,
 	)
 	if err != nil {
 		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:
+		case isUniqueViolation(err, "users_email_key"):
 			return ErrDuplicateEmail
 		default:
 			return err
@@ -129,7 +132,7 @@ func (m UserModel) GetByEmail(email string) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, query, email).Scan(
+	err := m.pool.QueryRow(ctx, query, email).Scan(
 		&user.ID,
 		&user.CreatedAt,
 		&user.Name,
@@ -141,7 +144,7 @@ func (m UserModel) GetByEmail(email string) (*User, error) {
 
 	if err != nil {
 		switch {
-		case errors.Is(err, sql.ErrNoRows):
+		case errors.Is(err, pgx.ErrNoRows):
 			return nil, ErrRecordNotFound
 		default:
 			return nil, err
@@ -169,12 +172,12 @@ func (m UserModel) Update(user *User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&user.Version)
+	err := m.pool.QueryRow(ctx, query, args...).Scan(&user.Version)
 	if err != nil {
 		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:
+		case isUniqueViolation(err, "users_email_key"):
 			return ErrDuplicateEmail
-		case errors.Is(err, sql.ErrNoRows):
+		case errors.Is(err, pgx.ErrNoRows):
 			return ErrEditConflict
 		default:
 			return err
@@ -200,7 +203,7 @@ func (m UserModel) GetForToken(tokenScope string, tokenPlaintext string) (*User,
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, query, args...).Scan(
+	err := m.pool.QueryRow(ctx, query, args...).Scan(
 		&user.ID,
 		&user.CreatedAt,
 		&user.Name,
@@ -212,7 +215,7 @@ func (m UserModel) GetForToken(tokenScope string, tokenPlaintext string) (*User,
 
 	if err != nil {
 		switch {
-		case errors.Is(err, sql.ErrNoRows):
+		case errors.Is(err, pgx.ErrNoRows):
 			return nil, ErrRecordNotFound
 		default:
 			return nil, err

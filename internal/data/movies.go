@@ -2,12 +2,13 @@ package data
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	db "github.com/vancanhuit/greenlight/internal/data/sqlc"
 	"github.com/vancanhuit/greenlight/internal/validator"
 )
 
@@ -22,7 +23,8 @@ type Movie struct {
 }
 
 type MovieModel struct {
-	DB *sql.DB
+	q    *db.Queries
+	pool *pgxpool.Pool
 }
 
 func ValidateMovie(v *validator.Validator, movie *Movie) {
@@ -43,25 +45,22 @@ func ValidateMovie(v *validator.Validator, movie *Movie) {
 }
 
 func (m MovieModel) Insert(movie *Movie) error {
-	query := `INSERT INTO movies (title, year, runtime, genres)
-	VALUES ($1, $2, $3, $4)
-	RETURNING id, created_at, version`
-
-	args := []interface{}{
-		movie.Title,
-		movie.Year,
-		movie.Runtime,
-		pq.Array(movie.Genres),
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	return m.DB.QueryRowContext(ctx, query, args...).Scan(
-		&movie.ID,
-		&movie.CreatedAt,
-		&movie.Version,
-	)
+	row, err := m.q.InsertMovie(ctx, db.InsertMovieParams{
+		Title:   movie.Title,
+		Year:    movie.Year,
+		Runtime: int32(movie.Runtime),
+		Genres:  movie.Genres,
+	})
+	if err != nil {
+		return err
+	}
+	movie.ID = row.ID
+	movie.CreatedAt = row.CreatedAt
+	movie.Version = row.Version
+	return nil
 }
 
 func (m MovieModel) Get(id int64) (*Movie, error) {
@@ -69,35 +68,26 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 		return nil, ErrRecordNotFound
 	}
 
-	query := `SELECT id, created_at, title, year, runtime, genres, version
-	FROM movies
-	WHERE id = $1`
-
-	var movie Movie
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, query, id).Scan(
-		&movie.ID,
-		&movie.CreatedAt,
-		&movie.Title,
-		&movie.Year,
-		&movie.Runtime,
-		pq.Array(&movie.Genres),
-		&movie.Version,
-	)
-
+	row, err := m.q.GetMovie(ctx, id)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrRecordNotFound
-		default:
-			return nil, err
 		}
+		return nil, err
 	}
 
-	return &movie, nil
+	return &Movie{
+		ID:        row.ID,
+		CreatedAt: row.CreatedAt,
+		Title:     row.Title,
+		Year:      row.Year,
+		Runtime:   Runtime(row.Runtime),
+		Genres:    row.Genres,
+		Version:   row.Version,
+	}, nil
 }
 
 func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, Metadata, error) {
@@ -110,14 +100,7 @@ func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*M
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(
-		ctx,
-		query,
-		title,
-		pq.Array(genres),
-		filters.limit(),
-		filters.offset(),
-	)
+	rows, err := m.pool.Query(ctx, query, title, genres, filters.limit(), filters.offset())
 	if err != nil {
 		return nil, Metadata{}, err
 	}
@@ -127,59 +110,50 @@ func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*M
 	totalRecords := 0
 	for rows.Next() {
 		var movie Movie
+		var runtime int32
 		err := rows.Scan(
 			&totalRecords,
 			&movie.ID,
 			&movie.CreatedAt,
 			&movie.Title,
 			&movie.Year,
-			&movie.Runtime,
-			pq.Array(&movie.Genres),
+			&runtime,
+			&movie.Genres,
 			&movie.Version,
 		)
 		if err != nil {
 			return nil, Metadata{}, err
 		}
+		movie.Runtime = Runtime(runtime)
 		movies = append(movies, &movie)
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, Metadata{}, err
 	}
 
 	metadata := caculateMetadata(totalRecords, filters.Page, filters.PageSize)
-
 	return movies, metadata, nil
 }
 
 func (m MovieModel) Update(movie *Movie) error {
-	query := `UPDATE movies
-	SET title = $1, year = $2, runtime = $3, genres = $4, version = version + 1
-	WHERE id = $5 AND version = $6
-	RETURNING version`
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	args := []interface{}{
-		movie.Title,
-		movie.Year,
-		movie.Runtime,
-		pq.Array(movie.Genres),
-		movie.ID,
-		movie.Version,
-	}
-
-	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&movie.Version)
+	version, err := m.q.UpdateMovie(ctx, db.UpdateMovieParams{
+		Title:   movie.Title,
+		Year:    movie.Year,
+		Runtime: int32(movie.Runtime),
+		Genres:  movie.Genres,
+		ID:      movie.ID,
+		Version: movie.Version,
+	})
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrEditConflict
-		default:
-			return err
 		}
+		return err
 	}
-
+	movie.Version = version
 	return nil
 }
 
@@ -191,20 +165,12 @@ func (m MovieModel) Delete(id int64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	query := `DELETE FROM movies WHERE id = $1`
-	result, err := m.DB.ExecContext(ctx, query, id)
+	rows, err := m.q.DeleteMovie(ctx, id)
 	if err != nil {
 		return err
 	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
+	if rows == 0 {
 		return ErrRecordNotFound
 	}
-
 	return nil
 }
