@@ -2,18 +2,17 @@
 
 ## Local development
 
-Tools:
-
-- [Go 1.18+](https://go.dev/)
-- [Docker](https://docs.docker.com/get-docker/)
-- [migrate CLI](https://github.com/golang-migrate/migrate/tree/master/cmd/migrate)
-- [hey](https://github.com/rakyll/hey)
-- [staticcheck](https://staticcheck.io/)
+Tools are managed by [mise](https://mise.jdx.dev/). Install mise, then:
 
 ```bash
-export GREENLIGHT_DB_DSN=postgres://dev:dev@localhost:5432/greenlight?sslmode=disable
-make db/create
-make run/api
-make db/migrations/up
-make db/drop
+mise install                 # install go, sqlc, goose, golangci-lint
+cp .env.example .env
+mise run db:up               # start test Postgres (docker compose profile: test)
+mise run dev:up              # start dev stack over HTTP
+mise run certs:setup         # one-time: local TLS certs via mkcert
+mise run dev:up:https        # dev stack over HTTPS (caddy + mkcert)
+mise run migrate:up          # apply migrations
+mise run run                 # run the API locally
+mise run test                # unit tests
+mise run test:db             # unit + DB integration tests
 ```

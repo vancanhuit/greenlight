@@ -1,0 +1,67 @@
+[tools]
+go = "1.26.4"
+sqlc = "1.31.1"
+"aqua:pressly/goose" = "3.27.2"
+golangci-lint = "2.12.2"
+mkcert = "1.4.4"
+
+[env]
+_.file = ".env"
+GREENLIGHT_DB_DSN = "postgres://dev:dev@localhost:5432/greenlight?sslmode=disable"
+GREENLIGHT_TEST_DB_DSN = "postgres://dev:dev@localhost:5433/greenlight_test?sslmode=disable"
+
+[tasks.run]
+description = "Run the API"
+run = "go run ./cmd/api -db-dsn=$GREENLIGHT_DB_DSN"
+
+[tasks.build]
+description = "Build the API binary"
+run = "go build -ldflags='-s' -o=./bin/api ./cmd/api"
+
+[tasks.test]
+description = "Run unit tests (no DB)"
+run = "go test -race ./..."
+
+[tasks."test:db"]
+description = "Run tests including DB integration tests"
+run = "GREENLIGHT_TEST_DB_DSN=$GREENLIGHT_TEST_DB_DSN go test -race ./..."
+
+[tasks.lint]
+description = "Run linters"
+run = ["gofmt -l -d .", "go vet ./...", "golangci-lint run"]
+
+[tasks.sqlc]
+description = "Generate sqlc code"
+run = "sqlc generate"
+
+[tasks."migrate:up"]
+description = "Apply all up migrations"
+run = "goose -dir=./migrations postgres \"$GREENLIGHT_DB_DSN\" up"
+
+[tasks."migrate:down"]
+description = "Roll back the last migration"
+run = "goose -dir=./migrations postgres \"$GREENLIGHT_DB_DSN\" down"
+
+[tasks."migrate:new"]
+description = "Create a new migration: mise run migrate:new name=create_x"
+run = "goose -dir=./migrations create ${name} sql"
+
+[tasks."db:up"]
+description = "Start the test Postgres stack"
+run = "docker compose --profile test up -d"
+
+[tasks."db:down"]
+description = "Stop the test Postgres stack"
+run = "docker compose --profile test down"
+
+[tasks."dev:up"]
+description = "Start dev stack (plain HTTP)"
+run = "docker compose --profile dev up -d"
+
+[tasks."dev:up:https"]
+description = "Start dev stack (HTTPS via mkcert + caddy)"
+run = "docker compose --profile dev-https up -d"
+
+[tasks."certs:setup"]
+description = "Generate local TLS certs with mkcert"
+run = ["mkdir -p .certs", "mkcert -install", "mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1"]
