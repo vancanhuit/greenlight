@@ -27,7 +27,7 @@ func NewModels(pool *pgxpool.Pool) Models {
 		Movies:      MovieModel{q: q, pool: pool},
 		Users:       UserModel{q: q},
 		Tokens:      TokenModel{q: q},
-		Permissions: PermissionModel{q: q, pool: pool},
+		Permissions: PermissionModel{q: q},
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/vancanhuit/greenlight/internal/data/sqlc"
 )
 
@@ -20,51 +19,26 @@ func (p Permissions) Include(code string) bool {
 }
 
 type PermissionModel struct {
-	q    *db.Queries
-	pool *pgxpool.Pool
+	q *db.Queries
 }
 
 func (m PermissionModel) GetAllForUser(userID int64) (Permissions, error) {
-	query := `SELECT permissions.code
-	FROM permissions
-	INNER JOIN users_permissions ON users_permissions.permission_id = permissions.id
-	INNER JOIN users ON users_permissions.user_id = users.id
-	WHERE users.id = $1`
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rows, err := m.pool.Query(ctx, query, userID)
+	codes, err := m.q.GetPermissionsForUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var permissions Permissions
-
-	for rows.Next() {
-		var permission string
-		err := rows.Scan(&permission)
-		if err != nil {
-			return nil, err
-		}
-
-		permissions = append(permissions, permission)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return permissions, nil
+	return Permissions(codes), nil
 }
 
 func (m PermissionModel) AddForUser(userID int64, codes ...string) error {
-	query := `INSERT INTO users_permissions
-	SELECT $1, permissions.id FROM permissions WHERE permissions.code = ANY($2)`
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	_, err := m.pool.Exec(ctx, query, userID, codes)
-	return err
+	return m.q.AddPermissionsForUser(ctx, db.AddPermissionsForUserParams{
+		UserID:  userID,
+		Column2: codes,
+	})
 }
