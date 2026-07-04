@@ -8,6 +8,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/lock"
+	"github.com/vancanhuit/greenlight/migrations"
 )
 
 var testPool *pgxpool.Pool
@@ -27,10 +29,20 @@ func TestMain(m *testing.M) {
 	testPool = pool
 
 	sqlDB := stdlib.OpenDBFromPool(pool)
-	if err := goose.SetDialect("postgres"); err != nil {
+	locker, err := lock.NewPostgresSessionLocker()
+	if err != nil {
 		panic(err)
 	}
-	if err := goose.Up(sqlDB, "../../migrations"); err != nil {
+	provider, err := goose.NewProvider(
+		goose.DialectPostgres,
+		sqlDB,
+		migrations.FS,
+		goose.WithSessionLocker(locker),
+	)
+	if err != nil {
+		panic(err)
+	}
+	if _, err := provider.Up(ctx); err != nil {
 		panic(err)
 	}
 	_ = sqlDB.Close()
