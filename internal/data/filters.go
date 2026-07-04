@@ -11,7 +11,7 @@ type Filters struct {
 	Page         int
 	PageSize     int
 	Sort         string
-	SortSafeList []string
+	SortSafelist []string
 }
 
 type Metadata struct {
@@ -23,7 +23,7 @@ type Metadata struct {
 }
 
 func (f Filters) sortColumn() string {
-	for _, v := range f.SortSafeList {
+	for _, v := range f.SortSafelist {
 		if f.Sort == v {
 			return strings.TrimPrefix(f.Sort, "-")
 		}
@@ -47,7 +47,7 @@ func (f Filters) offset() int {
 	return (f.Page - 1) * f.PageSize
 }
 
-func caculateMetadata(totalRecords, page, pageSize int) Metadata {
+func calculateMetadata(totalRecords, page, pageSize int) Metadata {
 	if totalRecords == 0 {
 		return Metadata{}
 	}
@@ -66,5 +66,5 @@ func ValidateFilters(v *validator.Validator, f Filters) {
 	v.Check(f.Page <= 10_000_000, "page", "must be a maximum of 10 million")
 	v.Check(f.PageSize > 0, "page_size", "must be greater than zero")
 	v.Check(f.PageSize <= 100, "page_size", "must be a maximum of 100")
-	v.Check(validator.In(f.Sort, f.SortSafeList...), "sort", "invalid sort value")
+	v.Check(validator.In(f.Sort, f.SortSafelist...), "sort", "invalid sort value")
 }

@@ -13,7 +13,7 @@ func TestFiltersLimitOffset(t *testing.T) {
 }
 
 func TestFiltersSort(t *testing.T) {
-	f := Filters{Sort: "-year", SortSafeList: []string{"year", "-year"}}
+	f := Filters{Sort: "-year", SortSafelist: []string{"year", "-year"}}
 	if f.sortColumn() != "year" {
 		t.Fatalf("sortColumn = %q, want year", f.sortColumn())
 	}
