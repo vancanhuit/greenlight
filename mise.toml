@@ -27,9 +27,27 @@ depends = ["db:up"]
 depends_post = ["db:down"]
 run = "go test -cover -race -v ./..."
 
+[tasks."lint:fmt"]
+description = "Run golangci-lint with formatting checks"
+run = [
+  'golangci-lint fmt -v ./cmd/... ./internal/... ./migrations/...',
+  'git diff --exit-code cmd internal migrations',
+]
+
 [tasks.lint]
 description = "Run linters"
-run = ['test -z "$(gofmt -l cmd internal)" || { gofmt -l cmd internal; exit 1; }', "go vet ./...", "golangci-lint run"]
+run = [
+  'go vet ./...',
+  'golangci-lint run -v ./cmd/... ./internal/... ./migrations/...',
+]
+
+[tasks.audit]
+description = "Verify modules and vendored deps are in sync"
+run = [
+  'go mod verify',
+  'go mod vendor',
+  'git diff --exit-code vendor',
+]
 
 [tasks.sqlc]
 description = "Generate sqlc code"
@@ -74,4 +92,8 @@ run = "docker compose --profile dev-https up -d"
 
 [tasks."certs:setup"]
 description = "Generate local TLS certs with mkcert"
-run = ["mkdir -p .certs", "mkcert -install", "mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1"]
+run = [
+  "mkdir -p .certs",
+  "mkcert -install",
+  "mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1",
+]
