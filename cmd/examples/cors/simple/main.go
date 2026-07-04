@@ -42,7 +42,7 @@ func main() {
 	// Start a HTTP server listening on the given address, which responds to all
 	// requests with the webpage HTML above.
 	err := http.ListenAndServe(*addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(html))
+		_, _ = w.Write([]byte(html))
 	}))
 	log.Fatal(err)
 }

@@ -2,9 +2,9 @@ package data
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base32"
-	"math/rand"
 	"time"
 
 	db "github.com/vancanhuit/greenlight/internal/data/sqlc"
