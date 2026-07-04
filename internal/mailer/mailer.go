@@ -6,24 +6,27 @@ import (
 	"html/template"
 	"time"
 
-	"github.com/go-mail/mail/v2"
+	"github.com/wneessen/go-mail"
 )
 
 //go:embed "templates"
 var templateFS embed.FS
 
 type Mailer struct {
-	dialer *mail.Dialer
-	sender string
+	host     string
+	port     int
+	username string
+	password string
+	sender   string
 }
 
 func New(host string, port int, username, password, sender string) Mailer {
-	dialer := mail.NewDialer(host, port, username, password)
-	dialer.Timeout = 5 * time.Second
-
 	return Mailer{
-		dialer: dialer,
-		sender: sender,
+		host:     host,
+		port:     port,
+		username: username,
+		password: password,
+		sender:   sender,
 	}
 }
 
@@ -51,15 +54,31 @@ func (m Mailer) Send(recipient, templateFile string, data interface{}) error {
 		return err
 	}
 
-	msg := mail.NewMessage()
-	msg.SetHeader("To", recipient)
-	msg.SetHeader("From", m.sender)
-	msg.SetHeader("Subject", subject.String())
-	msg.SetBody("text/plain", plainBody.String())
-	msg.SetBody("text/html", htmlBody.String())
+	msg := mail.NewMsg()
+	if err := msg.To(recipient); err != nil {
+		return err
+	}
+	if err := msg.From(m.sender); err != nil {
+		return err
+	}
+	msg.Subject(subject.String())
+	msg.SetBodyString(mail.TypeTextPlain, plainBody.String())
+	msg.AddAlternativeString(mail.TypeTextHTML, htmlBody.String())
+
+	client, err := mail.NewClient(m.host,
+		mail.WithPort(m.port),
+		mail.WithTimeout(5*time.Second),
+		mail.WithTLSPolicy(mail.TLSOpportunistic),
+		mail.WithSMTPAuth(mail.SMTPAuthAutoDiscover),
+		mail.WithUsername(m.username),
+		mail.WithPassword(m.password),
+	)
+	if err != nil {
+		return err
+	}
 
 	for i := 1; i <= 3; i++ {
-		err = m.dialer.DialAndSend(msg)
+		err = client.DialAndSend(msg)
 		if err == nil {
 			return nil
 		}
