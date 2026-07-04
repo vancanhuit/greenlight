@@ -93,7 +93,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 
 		headerParts := strings.Split(authorizationHeader, " ")
 		if len(headerParts) != 2 || headerParts[0] != "Bearer" {
-			app.invalidAuthenticattionTokenResponse(w, r)
+			app.invalidAuthenticationTokenResponse(w, r)
 			return
 		}
 
@@ -102,7 +102,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 		v := validator.New()
 
 		if data.ValidateTokenPlaintext(v, token); !v.Valid() {
-			app.invalidAuthenticattionTokenResponse(w, r)
+			app.invalidAuthenticationTokenResponse(w, r)
 			return
 		}
 
@@ -110,7 +110,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 		if err != nil {
 			switch {
 			case errors.Is(err, data.ErrRecordNotFound):
-				app.invalidAuthenticattionTokenResponse(w, r)
+				app.invalidAuthenticationTokenResponse(w, r)
 			default:
 				app.serverErrorResponse(w, r, err)
 			}
@@ -127,7 +127,7 @@ func (app *application) requireAuthenticatedUser(next http.Handler) http.Handler
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := app.contextGetUser(r)
 		if user.IsAnonymous() {
-			app.authenticattionRequiredResponse(w, r)
+			app.authenticationRequiredResponse(w, r)
 			return
 		}
 
@@ -200,17 +200,17 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 }
 
 func (app *application) metrics(next http.Handler) http.Handler {
-	totalRequestReceived := expvar.NewInt("total_request_received")
-	totalResponseSent := expvar.NewInt("total_response_sent")
+	totalRequestsReceived := expvar.NewInt("total_requests_received")
+	totalResponsesSent := expvar.NewInt("total_responses_sent")
 	totalProcessingTimeMicroseconds := expvar.NewInt("total_processing_time_μs")
 	totalResponsesSentByStatus := expvar.NewMap("total_responses_sent_by_status")
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		totalRequestReceived.Add(1)
+		totalRequestsReceived.Add(1)
 
 		metrics := httpsnoop.CaptureMetrics(next, w, r)
 
-		totalResponseSent.Add(1)
+		totalResponsesSent.Add(1)
 
 		totalProcessingTimeMicroseconds.Add(metrics.Duration.Microseconds())
 
