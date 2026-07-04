@@ -16,26 +16,15 @@ jobs:
         with:
           fetch-depth: 0
       - uses: jdx/mise-action@v4
-      - name: gofmt
-        run: |
-          unformatted=$(gofmt -l cmd internal)
-          if [ -n "$unformatted" ]; then
-            echo "These files are not gofmt-formatted:"
-            echo "$unformatted"
-            gofmt -d cmd internal
-            exit 1
-          fi
-      - run: go vet ./...
-      - run: golangci-lint run
+      - run: mise run lint:fmt
+      - run: mise run lint
 
   audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
-      - run: go mod verify
-      - run: go mod vendor
-      - run: git diff --exit-code
+      - run: mise run audit
 
   test:
     runs-on: ubuntu-latest
