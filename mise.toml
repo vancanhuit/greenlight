@@ -6,9 +6,7 @@ golangci-lint = "2.12.2"
 mkcert = "1.4.4"
 
 [env]
-_.file = ".env"
 GREENLIGHT_DB_DSN = "postgres://dev:dev@localhost:5432/greenlight?sslmode=disable"
-GREENLIGHT_TEST_DB_DSN = "postgres://dev:dev@localhost:5433/greenlight_test?sslmode=disable"
 
 [tasks.run]
 description = "Run the API"
@@ -24,7 +22,10 @@ run = "go test -race ./..."
 
 [tasks."test:db"]
 description = "Run tests including DB integration tests"
-run = "GREENLIGHT_TEST_DB_DSN=$GREENLIGHT_TEST_DB_DSN go test -race ./..."
+env = { GREENLIGHT_TEST_DB_DSN = "postgres://dev:dev@localhost:5433/greenlight_test?sslmode=disable" }
+depends = ["db:up"]
+depends_post = ["db:down"]
+run = "go test -cover -race -v ./..."
 
 [tasks.lint]
 description = "Run linters"
@@ -36,19 +37,28 @@ run = "sqlc generate"
 
 [tasks."migrate:up"]
 description = "Apply all up migrations"
-run = "goose -dir=./migrations postgres \"$GREENLIGHT_DB_DSN\" up"
+usage = '''
+arg "<db-dsn>" help="Database DSN to use for migrations"
+'''
+run = "goose -dir=./migrations postgres {{usage_db_dsn}} up"
 
 [tasks."migrate:down"]
 description = "Roll back the last migration"
-run = "goose -dir=./migrations postgres \"$GREENLIGHT_DB_DSN\" down"
+usage = '''
+arg "<db-dsn>" help="Database DSN to use for migrations"
+'''
+run = "goose -dir=./migrations postgres {{usage_db_dsn}} down"
 
 [tasks."migrate:new"]
-description = "Create a new migration: mise run migrate:new name=create_x"
-run = "goose -dir=./migrations create ${name} sql"
+description = "Create a new migration: mise run migrate:new <name>"
+usage = '''
+arg "<name>" help="Name of the migration"
+'''
+run = "goose -dir=./migrations create {{usage_name}} sql"
 
 [tasks."db:up"]
 description = "Start the test Postgres stack"
-run = "docker compose --profile test up -d"
+run = "docker compose --profile test up -d --wait"
 
 [tasks."db:down"]
 description = "Stop the test Postgres stack"

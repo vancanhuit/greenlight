@@ -39,24 +39,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: dev
-          POSTGRES_PASSWORD: dev
-          POSTGRES_DB: greenlight_test
-        ports:
-          - 5433:5432
-        options: >-
-          --health-cmd "pg_isready -U dev"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      GREENLIGHT_TEST_DB_DSN: postgres://dev:dev@localhost:5433/greenlight_test?sslmode=disable
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
-      - run: goose -dir=./migrations postgres "$GREENLIGHT_TEST_DB_DSN" up
-      - run: go test -race ./...
+      - run: mise run test:db
