@@ -1,4 +1,5 @@
 bin/
 .worktrees/
 .env
+mise.local.toml
 .certs/

@@ -1,5 +1,5 @@
 x-postgres-base: &pg-base
-  image: postgres:16
+  image: postgres:18
   restart: unless-stopped
   environment:
     POSTGRES_USER: dev
@@ -28,7 +28,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
 
   postgres-test:
     <<: *pg-base
@@ -40,7 +40,7 @@ services:
     ports:
       - "5433:5432"
     tmpfs:
-      - /var/lib/postgresql/data
+      - /var/lib/postgresql
 
   api:
     <<: *api-base
