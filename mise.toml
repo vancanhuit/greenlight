@@ -1,3 +1,6 @@
+[settings]
+task.run_auto_install = false
+
 [tools]
 go = "1.26.4"
 sqlc = "1.31.1"
@@ -7,6 +10,7 @@ mkcert = "1.4.4"
 
 [env]
 GREENLIGHT_DB_DSN = "postgres://dev:dev@localhost:5432/greenlight?sslmode=disable"
+VERSION = "{{ get_env(name='VERSION', default=exec(command='git describe --tags --always --dirty=-dev 2> /dev/null || echo dev')) }}"
 
 [tasks.run]
 description = "Run the API"
@@ -14,7 +18,8 @@ run = "go run ./cmd/api -db-dsn=$GREENLIGHT_DB_DSN"
 
 [tasks.build]
 description = "Build the API binary"
-run = "go build -ldflags=\"-s -X main.version=$(git describe --tags --always --dirty)\" -o=./bin/api ./cmd/api"
+depends = ["sqlc"]
+run = 'go build -ldflags="-s -X main.version=$VERSION" -o=./bin/api ./cmd/api'
 
 [tasks.test]
 description = "Run unit tests (no DB)"
@@ -96,4 +101,6 @@ run = [
   "mkdir -p .certs",
   "mkcert -install",
   "mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1",
+  "mkcert -cert-file .certs/mailpit.pem -key-file .certs/mailpit-key.pem mailpit",
+  'cp "$(mkcert -CAROOT)/rootCA.pem" .certs/rootCA.pem',
 ]
