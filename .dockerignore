@@ -1,0 +1,21 @@
+# Version control
+.git
+.gitignore
+
+# Docker / Compose
+.dockerignore
+compose.yaml
+Caddyfile
+
+# CI & build tooling
+.github
+Makefile
+
+# Local dev artifacts (generated / machine-specific)
+.worktrees
+.certs
+bin
+mailpit
+
+# Docs
+*.md
