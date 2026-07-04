@@ -156,6 +156,11 @@ func main() {
 		),
 	}
 
+	if err := app.migrateDB(db); err != nil {
+		logger.PrintFatal(err, nil)
+	}
+	logger.PrintInfo("database migrations applied", nil)
+
 	err = app.serve()
 	if err != nil {
 		logger.PrintFatal(err, nil)
