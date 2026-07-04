@@ -15,12 +15,10 @@ import (
 	"github.com/vancanhuit/greenlight/internal/data"
 	"github.com/vancanhuit/greenlight/internal/jsonlog"
 	"github.com/vancanhuit/greenlight/internal/mailer"
-	"github.com/vancanhuit/greenlight/internal/vcs"
 )
 
-var (
-	version = vcs.Version()
-)
+// version is set at build time via -ldflags "-X main.version=...".
+var version = "dev"
 
 type config struct {
 	port int

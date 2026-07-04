@@ -16,7 +16,7 @@ run = "go run ./cmd/api -db-dsn=$GREENLIGHT_DB_DSN"
 
 [tasks.build]
 description = "Build the API binary"
-run = "go build -ldflags='-s' -o=./bin/api ./cmd/api"
+run = "go build -ldflags=\"-s -X main.version=$(git describe --tags --always --dirty)\" -o=./bin/api ./cmd/api"
 
 [tasks.test]
 description = "Run unit tests (no DB)"
