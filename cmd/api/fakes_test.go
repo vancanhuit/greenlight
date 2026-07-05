@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/vancanhuit/greenlight/internal/data"
-	"github.com/vancanhuit/greenlight/internal/jsonlog"
 )
 
 // testToken26 is a 26-byte plaintext token, satisfying data.ValidateTokenPlaintext.
@@ -259,7 +259,7 @@ func newTestApp(t *testing.T) (*application, *testFakes) {
 	testAppOnce.Do(func() {
 		sharedApp = &application{
 			config: config{env: "testing"},
-			logger: jsonlog.New(io.Discard, jsonlog.LevelOff),
+			logger: slog.New(slog.NewJSONHandler(io.Discard, nil)),
 		}
 		sharedRouter = sharedApp.routes()
 	})

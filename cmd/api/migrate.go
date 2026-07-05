@@ -45,10 +45,10 @@ func (app *application) migrateDB(pool *pgxpool.Pool) error {
 	}
 
 	for _, r := range results {
-		app.logger.PrintInfo("applied migration", map[string]string{
-			"version": strconv.FormatInt(r.Source.Version, 10),
-			"source":  r.Source.Path,
-		})
+		app.logger.Info("applied migration",
+			"version", strconv.FormatInt(r.Source.Version, 10),
+			"source", r.Source.Path,
+		)
 	}
 
 	return nil
