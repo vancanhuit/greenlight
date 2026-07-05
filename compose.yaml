@@ -60,6 +60,7 @@ services:
       - "-smtp-port=1025"
       - "-smtp-username=dev"
       - "-smtp-password=dev"
+      - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
     ports:
       - "8000:8000"
     depends_on:
@@ -80,6 +81,7 @@ services:
       - "-smtp-port=1025"
       - "-smtp-username=dev"
       - "-smtp-password=dev"
+      - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
     depends_on:
       postgres-dev:
         condition: service_healthy
