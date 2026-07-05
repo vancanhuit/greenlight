@@ -3,11 +3,9 @@ package data
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/vancanhuit/greenlight/internal/data/sqlc"
 	"github.com/vancanhuit/greenlight/internal/validator"
 )
@@ -23,8 +21,7 @@ type Movie struct {
 }
 
 type MovieModel struct {
-	q    *db.Queries
-	pool *pgxpool.Pool
+	q *db.Queries
 }
 
 func ValidateMovie(v *validator.Validator, movie *Movie) {
@@ -91,44 +88,34 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 }
 
 func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, Metadata, error) {
-	query := fmt.Sprintf(`SELECT count(*) OVER(), id, created_at, title, year, runtime, genres, version
-	FROM movies
-	WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '') AND (genres @> $2 OR $2 = '{}')
-	ORDER BY %s %s, id
-	LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortDirection())
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rows, err := m.pool.Query(ctx, query, title, genres, filters.limit(), filters.offset())
+	rows, err := m.q.ListMovies(ctx, db.ListMoviesParams{
+		Title:         title,
+		Genres:        genres,
+		SortColumn:    filters.sortColumn(),
+		SortDirection: filters.sortDirection(),
+		PageLimit:     int32(filters.limit()),
+		PageOffset:    int32(filters.offset()),
+	})
 	if err != nil {
 		return nil, Metadata{}, err
 	}
-	defer rows.Close()
 
 	movies := []*Movie{}
 	totalRecords := 0
-	for rows.Next() {
-		var movie Movie
-		var runtime int32
-		err := rows.Scan(
-			&totalRecords,
-			&movie.ID,
-			&movie.CreatedAt,
-			&movie.Title,
-			&movie.Year,
-			&runtime,
-			&movie.Genres,
-			&movie.Version,
-		)
-		if err != nil {
-			return nil, Metadata{}, err
-		}
-		movie.Runtime = Runtime(runtime)
-		movies = append(movies, &movie)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, Metadata{}, err
+	for _, row := range rows {
+		totalRecords = int(row.Total)
+		movies = append(movies, &Movie{
+			ID:        row.ID,
+			CreatedAt: row.CreatedAt,
+			Title:     row.Title,
+			Year:      row.Year,
+			Runtime:   Runtime(row.Runtime),
+			Genres:    row.Genres,
+			Version:   row.Version,
+		})
 	}
 
 	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)

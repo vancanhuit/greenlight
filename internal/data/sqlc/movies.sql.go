@@ -74,6 +74,80 @@ func (q *Queries) InsertMovie(ctx context.Context, arg InsertMovieParams) (Inser
 	return i, err
 }
 
+const listMovies = `-- name: ListMovies :many
+SELECT count(*) OVER() AS total, id, created_at, title, year, runtime, genres, version
+FROM movies
+WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
+  AND (genres @> $2::text[] OR $2::text[] = '{}')
+ORDER BY
+  CASE WHEN $3::text = 'id'      AND $4::text = 'ASC'  THEN id      END ASC,
+  CASE WHEN $3::text = 'id'      AND $4::text = 'DESC' THEN id      END DESC,
+  CASE WHEN $3::text = 'title'   AND $4::text = 'ASC'  THEN title   END ASC,
+  CASE WHEN $3::text = 'title'   AND $4::text = 'DESC' THEN title   END DESC,
+  CASE WHEN $3::text = 'year'    AND $4::text = 'ASC'  THEN year    END ASC,
+  CASE WHEN $3::text = 'year'    AND $4::text = 'DESC' THEN year    END DESC,
+  CASE WHEN $3::text = 'runtime' AND $4::text = 'ASC'  THEN runtime END ASC,
+  CASE WHEN $3::text = 'runtime' AND $4::text = 'DESC' THEN runtime END DESC,
+  id
+LIMIT $6 OFFSET $5
+`
+
+type ListMoviesParams struct {
+	Title         string
+	Genres        []string
+	SortColumn    string
+	SortDirection string
+	PageOffset    int32
+	PageLimit     int32
+}
+
+type ListMoviesRow struct {
+	Total     int64
+	ID        int64
+	CreatedAt time.Time
+	Title     string
+	Year      int32
+	Runtime   int32
+	Genres    []string
+	Version   int32
+}
+
+func (q *Queries) ListMovies(ctx context.Context, arg ListMoviesParams) ([]ListMoviesRow, error) {
+	rows, err := q.db.Query(ctx, listMovies,
+		arg.Title,
+		arg.Genres,
+		arg.SortColumn,
+		arg.SortDirection,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMoviesRow
+	for rows.Next() {
+		var i ListMoviesRow
+		if err := rows.Scan(
+			&i.Total,
+			&i.ID,
+			&i.CreatedAt,
+			&i.Title,
+			&i.Year,
+			&i.Runtime,
+			&i.Genres,
+			&i.Version,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateMovie = `-- name: UpdateMovie :one
 UPDATE movies
 SET title = $1, year = $2, runtime = $3, genres = $4, version = version + 1

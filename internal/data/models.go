@@ -24,7 +24,7 @@ var (
 func NewModels(pool *pgxpool.Pool) Models {
 	q := db.New(pool)
 	return Models{
-		Movies:      MovieModel{q: q, pool: pool},
+		Movies:      MovieModel{q: q},
 		Users:       UserModel{q: q},
 		Tokens:      TokenModel{q: q},
 		Permissions: PermissionModel{q: q},
