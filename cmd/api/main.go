@@ -5,6 +5,7 @@ import (
 	"expvar"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime"
 	"strings"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vancanhuit/greenlight/internal/data"
-	"github.com/vancanhuit/greenlight/internal/jsonlog"
 	"github.com/vancanhuit/greenlight/internal/mailer"
 )
 
@@ -48,7 +48,7 @@ type config struct {
 
 type application struct {
 	config      config
-	logger      *jsonlog.Logger
+	logger      *slog.Logger
 	movies      MovieStore
 	users       UserStore
 	tokens      TokenStore
@@ -123,15 +123,16 @@ func main() {
 		os.Exit(0)
 	}
 
-	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	db, err := openDB(cfg)
 	if err != nil {
-		logger.PrintFatal(err, nil)
+		logger.Error(err.Error())
+		os.Exit(1)
 	}
 	defer db.Close()
 
-	logger.PrintInfo("database connection pool established", nil)
+	logger.Info("database connection pool established")
 
 	expvar.NewString("version").Set(version)
 	expvar.Publish("goroutines", expvar.Func(func() any {
@@ -162,12 +163,14 @@ func main() {
 	}
 
 	if err := app.migrateDB(db); err != nil {
-		logger.PrintFatal(err, nil)
+		logger.Error(err.Error())
+		os.Exit(1)
 	}
-	logger.PrintInfo("database migrations applied", nil)
+	logger.Info("database migrations applied")
 
 	err = app.serve()
 	if err != nil {
-		logger.PrintFatal(err, nil)
+		logger.Error(err.Error())
+		os.Exit(1)
 	}
 }
