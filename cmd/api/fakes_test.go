@@ -22,11 +22,7 @@ type fakeMovieStore struct {
 	movies map[int64]*data.Movie
 	nextID int64
 
-	insertErr error
-	getErr    error
-	getAllErr error
 	updateErr error
-	deleteErr error
 
 	// list result returned by GetAll plus the arguments it was called with.
 	listMovies   []*data.Movie
@@ -48,9 +44,6 @@ func (s *fakeMovieStore) seed(m *data.Movie) {
 }
 
 func (s *fakeMovieStore) Insert(movie *data.Movie) error {
-	if s.insertErr != nil {
-		return s.insertErr
-	}
 	s.nextID++
 	movie.ID = s.nextID
 	movie.Version = 1
@@ -61,12 +54,6 @@ func (s *fakeMovieStore) Insert(movie *data.Movie) error {
 }
 
 func (s *fakeMovieStore) Get(id int64) (*data.Movie, error) {
-	if s.getErr != nil {
-		return nil, s.getErr
-	}
-	if id < 1 {
-		return nil, data.ErrRecordNotFound
-	}
 	m, ok := s.movies[id]
 	if !ok {
 		return nil, data.ErrRecordNotFound
@@ -79,9 +66,6 @@ func (s *fakeMovieStore) GetAll(title string, genres []string, filters data.Filt
 	s.gotTitle = title
 	s.gotGenres = genres
 	s.gotFilters = filters
-	if s.getAllErr != nil {
-		return nil, data.Metadata{}, s.getAllErr
-	}
 	return s.listMovies, s.listMetadata, nil
 }
 
@@ -99,12 +83,6 @@ func (s *fakeMovieStore) Update(movie *data.Movie) error {
 }
 
 func (s *fakeMovieStore) Delete(id int64) error {
-	if s.deleteErr != nil {
-		return s.deleteErr
-	}
-	if id < 1 {
-		return data.ErrRecordNotFound
-	}
 	if _, ok := s.movies[id]; !ok {
 		return data.ErrRecordNotFound
 	}
@@ -117,9 +95,6 @@ type fakeUserStore struct {
 	byEmail map[string]*data.User
 	byToken map[string]*data.User
 	nextID  int64
-
-	insertErr error
-	updateErr error
 }
 
 func newFakeUserStore() *fakeUserStore {
@@ -139,9 +114,6 @@ func (s *fakeUserStore) add(u *data.User) {
 }
 
 func (s *fakeUserStore) Insert(user *data.User) error {
-	if s.insertErr != nil {
-		return s.insertErr
-	}
 	if _, ok := s.byEmail[user.Email]; ok {
 		return data.ErrDuplicateEmail
 	}
@@ -163,9 +135,6 @@ func (s *fakeUserStore) GetByEmail(email string) (*data.User, error) {
 }
 
 func (s *fakeUserStore) Update(user *data.User) error {
-	if s.updateErr != nil {
-		return s.updateErr
-	}
 	if _, ok := s.byID[user.ID]; !ok {
 		return data.ErrEditConflict
 	}
@@ -183,44 +152,24 @@ func (s *fakeUserStore) GetForToken(tokenScope, tokenPlaintext string) (*data.Us
 	return u, nil
 }
 
-type fakeTokenStore struct {
-	inserted  []*data.Token
-	deleted   []string
-	newErr    error
-	insertErr error
-}
-
-func (s *fakeTokenStore) Insert(token *data.Token) error {
-	if s.insertErr != nil {
-		return s.insertErr
-	}
-	s.inserted = append(s.inserted, token)
-	return nil
-}
+type fakeTokenStore struct{}
 
 func (s *fakeTokenStore) DeleteAllForUser(scope string, userID int64) error {
-	s.deleted = append(s.deleted, scope)
 	return nil
 }
 
 func (s *fakeTokenStore) New(userID int64, ttl time.Duration, scope string) (*data.Token, error) {
-	if s.newErr != nil {
-		return nil, s.newErr
-	}
 	token := &data.Token{
 		Plaintext: testToken26,
 		UserID:    userID,
 		Expiry:    time.Now().Add(ttl),
 		Scope:     scope,
 	}
-	s.inserted = append(s.inserted, token)
 	return token, nil
 }
 
 type fakePermissionStore struct {
-	perms  map[int64]data.Permissions
-	getErr error
-	addErr error
+	perms map[int64]data.Permissions
 }
 
 func newFakePermissionStore() *fakePermissionStore {
@@ -228,16 +177,10 @@ func newFakePermissionStore() *fakePermissionStore {
 }
 
 func (s *fakePermissionStore) GetAllForUser(userID int64) (data.Permissions, error) {
-	if s.getErr != nil {
-		return nil, s.getErr
-	}
 	return s.perms[userID], nil
 }
 
 func (s *fakePermissionStore) AddForUser(userID int64, codes ...string) error {
-	if s.addErr != nil {
-		return s.addErr
-	}
 	s.perms[userID] = append(s.perms[userID], codes...)
 	return nil
 }
@@ -250,12 +193,11 @@ type recordedEmail struct {
 
 type fakeEmailer struct {
 	sends []recordedEmail
-	err   error
 }
 
 func (e *fakeEmailer) Send(recipient, templateFile string, data any) error {
 	e.sends = append(e.sends, recordedEmail{recipient: recipient, template: templateFile, data: data})
-	return e.err
+	return nil
 }
 
 // --- Test application wiring ---------------------------------------------------
