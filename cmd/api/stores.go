@@ -25,7 +25,6 @@ type UserStore interface {
 
 // TokenStore is the seam the token and user handlers depend on.
 type TokenStore interface {
-	Insert(token *data.Token) error
 	DeleteAllForUser(scope string, userID int64) error
 	New(userID int64, ttl time.Duration, scope string) (*data.Token, error)
 }

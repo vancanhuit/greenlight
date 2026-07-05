@@ -2,6 +2,7 @@ package data_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/vancanhuit/greenlight/internal/data"
@@ -113,18 +114,6 @@ func titles(movies []*data.Movie) []string {
 	return out
 }
 
-func equalStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func TestMovieGetAllSorting(t *testing.T) {
 	requireDB(t)
 	truncate(t, "movies")
@@ -152,7 +141,7 @@ func TestMovieGetAllSorting(t *testing.T) {
 			if err != nil {
 				t.Fatalf("GetAll: %v", err)
 			}
-			if names := titles(got); !equalStrings(names, tc.want) {
+			if names := titles(got); !slices.Equal(names, tc.want) {
 				t.Fatalf("sort %q: got order %v, want %v", tc.sort, names, tc.want)
 			}
 			if metadata.TotalRecords != 4 {
@@ -173,7 +162,7 @@ func TestMovieGetAllTitleFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAll: %v", err)
 	}
-	if names := titles(got); !equalStrings(names, []string{"The Matrix"}) {
+	if names := titles(got); !slices.Equal(names, []string{"The Matrix"}) {
 		t.Fatalf("title filter: got %v, want [The Matrix]", names)
 	}
 	if metadata.TotalRecords != 1 {
@@ -192,7 +181,7 @@ func TestMovieGetAllGenresFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAll: %v", err)
 	}
-	if names := titles(got); !equalStrings(names, []string{"Alien", "The Matrix"}) {
+	if names := titles(got); !slices.Equal(names, []string{"Alien", "The Matrix"}) {
 		t.Fatalf("genres filter: got %v, want [Alien The Matrix]", names)
 	}
 	if metadata.TotalRecords != 2 {
@@ -217,7 +206,7 @@ func TestMovieGetAllPaginationMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAll: %v", err)
 	}
-	if names := titles(got); !equalStrings(names, []string{"Casablanca", "Heat"}) {
+	if names := titles(got); !slices.Equal(names, []string{"Casablanca", "Heat"}) {
 		t.Fatalf("pagination: got %v, want [Casablanca Heat]", names)
 	}
 	want := data.Metadata{
