@@ -47,11 +47,14 @@ type config struct {
 }
 
 type application struct {
-	config config
-	logger *jsonlog.Logger
-	models data.Models
-	mailer mailer.Mailer
-	wg     sync.WaitGroup
+	config      config
+	logger      *jsonlog.Logger
+	movies      MovieStore
+	users       UserStore
+	tokens      TokenStore
+	permissions PermissionStore
+	mailer      Emailer
+	wg          sync.WaitGroup
 }
 
 func openDB(cfg config) (*pgxpool.Pool, error) {
@@ -141,10 +144,14 @@ func main() {
 		return time.Now().Unix()
 	}))
 
+	models := data.NewModels(db)
 	app := application{
-		config: cfg,
-		logger: logger,
-		models: data.NewModels(db),
+		config:      cfg,
+		logger:      logger,
+		movies:      models.Movies,
+		users:       models.Users,
+		tokens:      models.Tokens,
+		permissions: models.Permissions,
 		mailer: mailer.New(
 			cfg.smtp.host,
 			cfg.smtp.port,
