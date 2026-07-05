@@ -3,3 +3,5 @@ bin/
 .env
 mise.local.toml
 .certs/
+# CocoIndex Code (ccc)
+/.cocoindex_code/
