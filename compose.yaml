@@ -1,130 +1,130 @@
 x-postgres-base: &pg-base
-  image: postgres:18
-  restart: unless-stopped
-  environment:
-    POSTGRES_USER: dev
-    POSTGRES_PASSWORD: dev
-  healthcheck:
-    test: ["CMD-SHELL", "pg_isready -U dev"]
-    interval: 10s
-    timeout: 5s
-    retries: 5
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+        POSTGRES_USER: dev
+        POSTGRES_PASSWORD: dev
+    healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U dev"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
 
 x-api-base: &api-base
-  build:
-    context: .
-    dockerfile: Dockerfile
-  environment:
-    GREENLIGHT_DB_DSN: postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable
-    SSL_CERT_FILE: /certs/rootCA.pem
-  volumes:
-    - ./.certs:/certs:ro
+    build:
+        context: .
+        dockerfile: Dockerfile
+    environment:
+        GREENLIGHT_DB_DSN: postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable
+        SSL_CERT_FILE: /certs/rootCA.pem
+    volumes:
+        - ./.certs:/certs:ro
 
 services:
-  postgres-dev:
-    <<: *pg-base
-    profiles: ["dev", "dev-https"]
-    environment:
-      POSTGRES_USER: dev
-      POSTGRES_PASSWORD: dev
-      POSTGRES_DB: greenlight
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql
-    networks:
-      - dev
-      - dev-https
+    postgres-dev:
+        <<: *pg-base
+        profiles: ["dev", "dev-https"]
+        environment:
+            POSTGRES_USER: dev
+            POSTGRES_PASSWORD: dev
+            POSTGRES_DB: greenlight
+        ports:
+            - "5432:5432"
+        volumes:
+            - pgdata:/var/lib/postgresql
+        networks:
+            - dev
+            - dev-https
 
-  postgres-test:
-    <<: *pg-base
-    profiles: ["test"]
-    environment:
-      POSTGRES_USER: dev
-      POSTGRES_PASSWORD: dev
-      POSTGRES_DB: greenlight_test
-    ports:
-      - "5433:5432"
-    tmpfs:
-      - /var/lib/postgresql
-    networks:
-      - test
+    postgres-test:
+        <<: *pg-base
+        profiles: ["test"]
+        environment:
+            POSTGRES_USER: dev
+            POSTGRES_PASSWORD: dev
+            POSTGRES_DB: greenlight_test
+        ports:
+            - "5433:5432"
+        tmpfs:
+            - /var/lib/postgresql
+        networks:
+            - test
 
-  api:
-    <<: *api-base
-    profiles: ["dev"]
-    command:
-      - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
-      - "-port=8000"
-      - "-smtp-host=mailpit"
-      - "-smtp-port=1025"
-      - "-smtp-username=dev"
-      - "-smtp-password=dev"
-      - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
-    ports:
-      - "8000:8000"
-    depends_on:
-      postgres-dev:
-        condition: service_healthy
-      mailpit:
-        condition: service_started
-    networks:
-      - dev
+    api:
+        <<: *api-base
+        profiles: ["dev"]
+        command:
+            - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
+            - "-port=8000"
+            - "-smtp-host=mailpit"
+            - "-smtp-port=1025"
+            - "-smtp-username=dev"
+            - "-smtp-password=dev"
+            - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
+        ports:
+            - "8000:8000"
+        depends_on:
+            postgres-dev:
+                condition: service_healthy
+            mailpit:
+                condition: service_started
+        networks:
+            - dev
 
-  api-https:
-    <<: *api-base
-    profiles: ["dev-https"]
-    command:
-      - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
-      - "-port=8000"
-      - "-smtp-host=mailpit"
-      - "-smtp-port=1025"
-      - "-smtp-username=dev"
-      - "-smtp-password=dev"
-      - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
-    depends_on:
-      postgres-dev:
-        condition: service_healthy
-      mailpit:
-        condition: service_started
-    networks:
-      - dev-https
+    api-https:
+        <<: *api-base
+        profiles: ["dev-https"]
+        command:
+            - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
+            - "-port=8000"
+            - "-smtp-host=mailpit"
+            - "-smtp-port=1025"
+            - "-smtp-username=dev"
+            - "-smtp-password=dev"
+            - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
+        depends_on:
+            postgres-dev:
+                condition: service_healthy
+            mailpit:
+                condition: service_started
+        networks:
+            - dev-https
 
-  caddy:
-    image: caddy:2
-    profiles: ["dev-https"]
-    ports:
-      - "443:443"
-    volumes:
-      - ./.certs:/certs:ro
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-    depends_on:
-      - api-https
-    networks:
-      - dev-https
+    caddy:
+        image: caddy:2
+        profiles: ["dev-https"]
+        ports:
+            - "443:443"
+        volumes:
+            - ./.certs:/certs:ro
+            - ./Caddyfile:/etc/caddy/Caddyfile:ro
+        depends_on:
+            - api-https
+        networks:
+            - dev-https
 
-  mailpit:
-    image: axllent/mailpit:v1.30.3
-    restart: unless-stopped
-    profiles: ["dev", "dev-https"]
-    environment:
-      MP_SMTP_AUTH_FILE: /etc/mailpit-auth.conf
-      MP_SMTP_AUTH_ALLOW_INSECURE: 1
-      MP_SMTP_TLS_CERT: /certs/mailpit.pem
-      MP_SMTP_TLS_KEY: /certs/mailpit-key.pem
-    volumes:
-      - ./mailpit/auth.conf:/etc/mailpit-auth.conf:ro
-      - ./.certs:/certs:ro
-    ports:
-      - "127.0.0.1:8025:8025"
-    networks:
-      - dev
-      - dev-https
+    mailpit:
+        image: axllent/mailpit:v1.30.4
+        restart: unless-stopped
+        profiles: ["dev", "dev-https"]
+        environment:
+            MP_SMTP_AUTH_FILE: /etc/mailpit-auth.conf
+            MP_SMTP_AUTH_ALLOW_INSECURE: 1
+            MP_SMTP_TLS_CERT: /certs/mailpit.pem
+            MP_SMTP_TLS_KEY: /certs/mailpit-key.pem
+        volumes:
+            - ./mailpit/auth.conf:/etc/mailpit-auth.conf:ro
+            - ./.certs:/certs:ro
+        ports:
+            - "127.0.0.1:8025:8025"
+        networks:
+            - dev
+            - dev-https
 
 volumes:
-  pgdata:
+    pgdata:
 
 networks:
-  dev:
-  dev-https:
-  test:
+    dev:
+    dev-https:
+    test:
