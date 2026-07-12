@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"testing"
+
+	"go.uber.org/goleak"
 )
 
 func TestEnableCORSSetsBothVaryHeaders(t *testing.T) {
@@ -66,7 +69,10 @@ func TestClientIP(t *testing.T) {
 // TestRateLimitExceeded confirms the per-IP limiter denies a second request
 // that exceeds the configured burst, returning 429 for the same client IP.
 func TestRateLimitExceeded(t *testing.T) {
-	app := &application{logger: slog.New(slog.NewJSONHandler(io.Discard, nil))}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	app := &application{logger: slog.New(slog.NewJSONHandler(io.Discard, nil)), shutdownCtx: ctx}
 	app.config.limiter.enabled = true
 	app.config.limiter.rps = 1
 	app.config.limiter.burst = 1
@@ -93,4 +99,23 @@ func TestRateLimitExceeded(t *testing.T) {
 	if second.Code != http.StatusTooManyRequests {
 		t.Fatalf("second request: got %d, want %d", second.Code, http.StatusTooManyRequests)
 	}
+}
+
+// TestRateLimitCleanupStopsOnShutdown verifies the per-limiter cleanup goroutine
+// terminates when the app's shutdown context is cancelled, rather than leaking
+// for the lifetime of the process.
+func TestRateLimitCleanupStopsOnShutdown(t *testing.T) {
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	app := &application{shutdownCtx: ctx}
+	app.config.limiter.enabled = true
+	app.config.limiter.rps = 1
+	app.config.limiter.burst = 1
+
+	// Constructing the middleware spawns the cleanup goroutine.
+	_ = app.rateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+
+	// Cancelling the shutdown context must terminate that goroutine.
+	cancel()
 }

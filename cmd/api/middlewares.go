@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"expvar"
 	"fmt"
@@ -53,18 +54,28 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 		clients = make(map[string]*client)
 	)
 
+	ctx := app.shutdownCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+
 		for {
-			time.Sleep(time.Minute)
-			mu.Lock()
-
-			for ip, client := range clients {
-				if time.Since(client.lastSeen) > 3*time.Minute {
-					delete(clients, ip)
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				mu.Lock()
+				for ip, client := range clients {
+					if time.Since(client.lastSeen) > 3*time.Minute {
+						delete(clients, ip)
+					}
 				}
+				mu.Unlock()
 			}
-
-			mu.Unlock()
 		}
 	}()
 

@@ -164,7 +164,8 @@ func TestMTLSHandshake(t *testing.T) {
 	}
 	newClient := func(certs ...tls.Certificate) *http.Client {
 		return &http.Client{Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{RootCAs: rootPool, Certificates: certs},
+			DisableKeepAlives: true,
+			TLSClientConfig:   &tls.Config{RootCAs: rootPool, Certificates: certs},
 		}}
 	}
 

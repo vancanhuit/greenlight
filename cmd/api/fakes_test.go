@@ -1,16 +1,20 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/vancanhuit/greenlight/internal/data"
+	"go.uber.org/goleak"
 )
 
 // testToken26 is a 26-byte plaintext token, satisfying data.ValidateTokenPlaintext.
@@ -248,18 +252,38 @@ func (f *testFakes) seedAuthedUser(t *testing.T, perms ...string) (*data.User, s
 // interface fields off the shared *application at request time. Tests must not run
 // in parallel.
 var (
-	testAppOnce  sync.Once
-	sharedApp    *application
-	sharedRouter http.Handler
+	testAppOnce        sync.Once
+	sharedApp          *application
+	sharedRouter       http.Handler
+	testShutdownCancel context.CancelFunc
 )
+
+// TestMain cancels the shared app's shutdown context (stopping the rate-limiter
+// cleanup goroutine it spawned) and then asserts no goroutines leaked.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if testShutdownCancel != nil {
+		testShutdownCancel()
+	}
+	if err := goleak.Find(); err != nil {
+		fmt.Fprintln(os.Stderr, "goleak:", err)
+		if code == 0 {
+			code = 1
+		}
+	}
+	os.Exit(code)
+}
 
 func newTestApp(t *testing.T) (*application, *testFakes) {
 	t.Helper()
 	fakes := newFakes()
 	testAppOnce.Do(func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		testShutdownCancel = cancel
 		sharedApp = &application{
-			config: config{env: "testing"},
-			logger: slog.New(slog.NewJSONHandler(io.Discard, nil)),
+			config:      config{env: "testing"},
+			logger:      slog.New(slog.NewJSONHandler(io.Discard, nil)),
+			shutdownCtx: ctx,
 		}
 		sharedRouter = sharedApp.routes()
 	})

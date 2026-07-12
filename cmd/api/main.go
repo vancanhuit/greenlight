@@ -62,6 +62,9 @@ type application struct {
 	permissions PermissionStore
 	mailer      Emailer
 	wg          sync.WaitGroup
+	// shutdownCtx is cancelled when the server begins shutting down, signalling
+	// background maintenance goroutines (e.g. the rate-limiter cleanup) to stop.
+	shutdownCtx context.Context
 }
 
 func validateTLSConfig(certFile, keyFile, clientCAFile string) error {

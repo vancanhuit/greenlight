@@ -43,6 +43,10 @@ func (app *application) serve() error {
 		return err
 	}
 
+	shutdownCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	app.shutdownCtx = shutdownCtx
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", app.config.port),
 		Handler:      app.routes(),
@@ -63,6 +67,9 @@ func (app *application) serve() error {
 		s := <-quit
 
 		app.logger.Info("shutting down server", "signal", s.String())
+
+		// Stop background maintenance goroutines before draining requests.
+		cancel()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()

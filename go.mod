@@ -12,6 +12,7 @@ require (
 	github.com/pressly/goose/v3 v3.27.2
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/wneessen/go-mail v0.7.3
+	go.uber.org/goleak v1.3.0
 	golang.org/x/crypto v0.53.0
 )
 
