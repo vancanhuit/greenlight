@@ -21,3 +21,13 @@ func TestFiltersSort(t *testing.T) {
 		t.Fatalf("sortDirection = %q, want DESC", f.sortDirection())
 	}
 }
+
+func TestFiltersSortAscending(t *testing.T) {
+	f := Filters{Sort: "year", SortSafelist: []string{"year", "-year"}}
+	if f.sortColumn() != "year" {
+		t.Fatalf("sortColumn = %q, want year", f.sortColumn())
+	}
+	if f.sortDirection() != "ASC" {
+		t.Fatalf("sortDirection = %q, want ASC", f.sortDirection())
+	}
+}

@@ -25,3 +25,19 @@ func TestRuntimeUnmarshalJSON(t *testing.T) {
 		t.Fatalf("expected ErrInvalidRuntimeFormat, got %v", err)
 	}
 }
+
+func TestRuntimeUnmarshalJSONInvalid(t *testing.T) {
+	cases := []string{
+		`"102"`,       // missing unit
+		`""`,          // empty string
+		`"abc mins"`,  // non-numeric quantity
+		`"102 hours"`, // wrong unit
+		`102`,         // not a quoted string
+	}
+	for _, in := range cases {
+		var r Runtime
+		if err := r.UnmarshalJSON([]byte(in)); err != ErrInvalidRuntimeFormat {
+			t.Errorf("UnmarshalJSON(%s): got %v, want ErrInvalidRuntimeFormat", in, err)
+		}
+	}
+}
