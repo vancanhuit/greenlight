@@ -40,7 +40,7 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = app.users.Insert(user)
+	token, err := app.accounts.RegisterUser(user, []string{"movies:read"}, 3*24*time.Hour, data.ScopeActivation)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrDuplicateEmail):
@@ -49,18 +49,6 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		default:
 			app.serverErrorResponse(w, r, err)
 		}
-		return
-	}
-
-	err = app.permissions.AddForUser(user.ID, "movies:read")
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-
-	token, err := app.tokens.New(user.ID, 3*24*time.Hour, data.ScopeActivation)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
 		return
 	}
 
@@ -113,7 +101,7 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 
 	user.Activated = true
 
-	err = app.users.Update(user)
+	err = app.accounts.ActivateUser(user, data.ScopeActivation)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrEditConflict):
@@ -121,12 +109,6 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 		default:
 			app.serverErrorResponse(w, r, err)
 		}
-		return
-	}
-
-	err = app.tokens.DeleteAllForUser(data.ScopeActivation, user.ID)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
 		return
 	}
 

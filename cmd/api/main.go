@@ -60,6 +60,7 @@ type application struct {
 	users       UserStore
 	tokens      TokenStore
 	permissions PermissionStore
+	accounts    AccountStore
 	mailer      Emailer
 	wg          sync.WaitGroup
 	// shutdownCtx is cancelled when the server begins shutting down, signalling
@@ -183,6 +184,7 @@ func main() {
 		users:       models.Users,
 		tokens:      models.Tokens,
 		permissions: models.Permissions,
+		accounts:    models,
 		mailer: mailer.New(
 			cfg.smtp.host,
 			cfg.smtp.port,

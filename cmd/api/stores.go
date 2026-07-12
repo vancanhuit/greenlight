@@ -35,6 +35,13 @@ type PermissionStore interface {
 	AddForUser(userID int64, codes ...string) error
 }
 
+// AccountStore is the seam for multi-table account operations that must be
+// performed atomically (in a single database transaction).
+type AccountStore interface {
+	RegisterUser(user *data.User, permissions []string, tokenTTL time.Duration, tokenScope string) (*data.Token, error)
+	ActivateUser(user *data.User, tokenScope string) error
+}
+
 // Emailer is the seam the user handlers depend on for sending mail.
 type Emailer interface {
 	Send(recipient, templateFile string, data any) error

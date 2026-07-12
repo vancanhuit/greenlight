@@ -204,23 +204,63 @@ func (e *fakeEmailer) Send(recipient, templateFile string, data any) error {
 	return nil
 }
 
+// fakeAccountStore stands in for the transactional account operations. It
+// records what was registered/activated and can inject failures to exercise
+// the handlers' error paths.
+type fakeAccountStore struct {
+	nextID       int64
+	registerErr  error
+	activateErr  error
+	registered   []*data.User
+	grantedPerms map[int64][]string
+	activated    []*data.User
+}
+
+func newFakeAccountStore() *fakeAccountStore {
+	return &fakeAccountStore{grantedPerms: map[int64][]string{}}
+}
+
+func (s *fakeAccountStore) RegisterUser(user *data.User, permissions []string, tokenTTL time.Duration, tokenScope string) (*data.Token, error) {
+	if s.registerErr != nil {
+		return nil, s.registerErr
+	}
+	s.nextID++
+	user.ID = s.nextID
+	user.Version = 1
+	user.CreatedAt = time.Now()
+	s.registered = append(s.registered, user)
+	s.grantedPerms[user.ID] = append(s.grantedPerms[user.ID], permissions...)
+	return &data.Token{Plaintext: testToken26, UserID: user.ID, Expiry: time.Now().Add(tokenTTL), Scope: tokenScope}, nil
+}
+
+func (s *fakeAccountStore) ActivateUser(user *data.User, tokenScope string) error {
+	if s.activateErr != nil {
+		return s.activateErr
+	}
+	user.Version++
+	s.activated = append(s.activated, user)
+	return nil
+}
+
 // --- Test application wiring ---------------------------------------------------
 
 type testFakes struct {
-	movies *fakeMovieStore
-	users  *fakeUserStore
-	tokens *fakeTokenStore
-	perms  *fakePermissionStore
-	mailer *fakeEmailer
+	movies   *fakeMovieStore
+	users    *fakeUserStore
+	tokens   *fakeTokenStore
+	perms    *fakePermissionStore
+	accounts *fakeAccountStore
+	mailer   *fakeEmailer
 }
 
 func newFakes() *testFakes {
 	return &testFakes{
-		movies: newFakeMovieStore(),
-		users:  newFakeUserStore(),
-		tokens: &fakeTokenStore{},
-		perms:  newFakePermissionStore(),
-		mailer: &fakeEmailer{},
+		movies:   newFakeMovieStore(),
+		users:    newFakeUserStore(),
+		tokens:   &fakeTokenStore{},
+		perms:    newFakePermissionStore(),
+		accounts: newFakeAccountStore(),
+		mailer:   &fakeEmailer{},
 	}
 }
 
@@ -229,6 +269,7 @@ func (f *testFakes) install(app *application) {
 	app.users = f.users
 	app.tokens = f.tokens
 	app.permissions = f.perms
+	app.accounts = f.accounts
 	app.mailer = f.mailer
 }
 

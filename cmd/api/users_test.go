@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/vancanhuit/greenlight/internal/data"
@@ -33,9 +35,9 @@ func TestRegisterUserHandler(t *testing.T) {
 		t.Errorf("unexpected user envelope: %+v", env.User)
 	}
 
-	// movies:read must be granted to the newly registered user.
-	perms := fakes.perms.perms[env.User.ID]
-	if !perms.Include("movies:read") {
+	// movies:read must be granted to the newly registered user atomically.
+	perms := fakes.accounts.grantedPerms[env.User.ID]
+	if !slices.Contains(perms, "movies:read") {
 		t.Errorf("expected movies:read permission for user %d, got %v", env.User.ID, perms)
 	}
 
@@ -54,7 +56,7 @@ func TestRegisterUserHandler(t *testing.T) {
 
 func TestRegisterUserHandlerDuplicateEmail(t *testing.T) {
 	app, fakes := newTestApp(t)
-	fakes.users.add(&data.User{ID: 1, Name: "Existing", Email: "dupe@example.com"})
+	fakes.accounts.registerErr = data.ErrDuplicateEmail
 
 	reqBody := `{"name":"Bob","email":"dupe@example.com","password":"password123"}`
 	res, resBody := doRequest(t, http.MethodPost, "/v1/users", "", bytes.NewBufferString(reqBody))
@@ -69,6 +71,23 @@ func TestRegisterUserHandlerDuplicateEmail(t *testing.T) {
 	}
 	if len(fakes.mailer.sends) != 0 {
 		t.Error("expected no email to be sent on duplicate registration")
+	}
+}
+
+func TestRegisterUserHandlerServerError(t *testing.T) {
+	app, fakes := newTestApp(t)
+	fakes.accounts.registerErr = errors.New("transaction failed")
+
+	reqBody := `{"name":"Carol","email":"carol@example.com","password":"password123"}`
+	res, resBody := doRequest(t, http.MethodPost, "/v1/users", "", bytes.NewBufferString(reqBody))
+	app.wg.Wait()
+
+	if res.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("status: got %d want %d (body: %s)", res.StatusCode, http.StatusInternalServerError, resBody)
+	}
+	// Registration failed atomically, so no welcome email should be sent.
+	if len(fakes.mailer.sends) != 0 {
+		t.Error("expected no email to be sent when registration fails")
 	}
 }
 
@@ -93,8 +112,23 @@ func TestActivateUserHandler(t *testing.T) {
 	if !env.User.Activated {
 		t.Error("expected user to be activated in the response envelope")
 	}
-	if !user.Activated {
-		t.Error("expected user to be activated in the store")
+	if len(fakes.accounts.activated) != 1 {
+		t.Errorf("expected the account to be activated exactly once, got %d", len(fakes.accounts.activated))
+	}
+}
+
+func TestActivateUserHandlerEditConflict(t *testing.T) {
+	_, fakes := newTestApp(t)
+	user := &data.User{ID: 1, Name: "Alice", Email: "alice@example.com", Activated: false, Version: 1}
+	fakes.users.add(user)
+	fakes.users.byToken[data.ScopeActivation+":"+testToken26] = user
+	fakes.accounts.activateErr = data.ErrEditConflict
+
+	reqBody := `{"token":"` + testToken26 + `"}`
+	res, resBody := doRequest(t, http.MethodPut, "/v1/users/activated", "", bytes.NewBufferString(reqBody))
+
+	if res.StatusCode != http.StatusConflict {
+		t.Fatalf("status: got %d want %d (body: %s)", res.StatusCode, http.StatusConflict, resBody)
 	}
 }
 
