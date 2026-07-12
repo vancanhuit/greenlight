@@ -17,22 +17,18 @@ type MovieStore interface {
 
 // UserStore is the seam the user and token handlers depend on.
 type UserStore interface {
-	Insert(user *data.User) error
 	GetByEmail(email string) (*data.User, error)
-	Update(user *data.User) error
 	GetForToken(tokenScope, tokenPlaintext string) (*data.User, error)
 }
 
-// TokenStore is the seam the token and user handlers depend on.
+// TokenStore is the seam the token handlers depend on.
 type TokenStore interface {
-	DeleteAllForUser(scope string, userID int64) error
 	New(userID int64, ttl time.Duration, scope string) (*data.Token, error)
 }
 
 // PermissionStore is the seam the permission-aware handlers depend on.
 type PermissionStore interface {
 	GetAllForUser(userID int64) (data.Permissions, error)
-	AddForUser(userID int64, codes ...string) error
 }
 
 // AccountStore is the seam for multi-table account operations that must be

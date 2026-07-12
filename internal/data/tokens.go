@@ -67,16 +67,6 @@ func (m TokenModel) Insert(token *Token) error {
 	})
 }
 
-func (m TokenModel) DeleteAllForUser(scope string, userID int64) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	return m.q.DeleteAllTokensForUser(ctx, db.DeleteAllTokensForUserParams{
-		Scope:  scope,
-		UserID: userID,
-	})
-}
-
 func (m TokenModel) New(userID int64, ttl time.Duration, scope string) (*Token, error) {
 	token, err := generateToken(userID, ttl, scope)
 	if err != nil {

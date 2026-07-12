@@ -124,32 +124,6 @@ func (m UserModel) GetByEmail(email string) (*User, error) {
 	return userFromRow(row.ID, row.CreatedAt, row.Name, row.Email, row.PasswordHash, row.Activated, row.Version), nil
 }
 
-func (m UserModel) Update(user *User) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	version, err := m.q.UpdateUser(ctx, db.UpdateUserParams{
-		Name:         user.Name,
-		Email:        user.Email,
-		PasswordHash: user.Password.hash,
-		Activated:    user.Activated,
-		ID:           user.ID,
-		Version:      int32(user.Version),
-	})
-	if err != nil {
-		switch {
-		case isUniqueViolation(err, "users_email_key"):
-			return ErrDuplicateEmail
-		case errors.Is(err, pgx.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
-	}
-	user.Version = int(version)
-	return nil
-}
-
 func (m UserModel) GetForToken(tokenScope string, tokenPlaintext string) (*User, error) {
 	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
 

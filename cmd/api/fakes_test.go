@@ -117,35 +117,12 @@ func (s *fakeUserStore) add(u *data.User) {
 	}
 }
 
-func (s *fakeUserStore) Insert(user *data.User) error {
-	if _, ok := s.byEmail[user.Email]; ok {
-		return data.ErrDuplicateEmail
-	}
-	s.nextID++
-	user.ID = s.nextID
-	user.Version = 1
-	user.CreatedAt = time.Now()
-	s.byID[user.ID] = user
-	s.byEmail[user.Email] = user
-	return nil
-}
-
 func (s *fakeUserStore) GetByEmail(email string) (*data.User, error) {
 	u, ok := s.byEmail[email]
 	if !ok {
 		return nil, data.ErrRecordNotFound
 	}
 	return u, nil
-}
-
-func (s *fakeUserStore) Update(user *data.User) error {
-	if _, ok := s.byID[user.ID]; !ok {
-		return data.ErrEditConflict
-	}
-	user.Version++
-	s.byID[user.ID] = user
-	s.byEmail[user.Email] = user
-	return nil
 }
 
 func (s *fakeUserStore) GetForToken(tokenScope, tokenPlaintext string) (*data.User, error) {
@@ -157,10 +134,6 @@ func (s *fakeUserStore) GetForToken(tokenScope, tokenPlaintext string) (*data.Us
 }
 
 type fakeTokenStore struct{}
-
-func (s *fakeTokenStore) DeleteAllForUser(scope string, userID int64) error {
-	return nil
-}
 
 func (s *fakeTokenStore) New(userID int64, ttl time.Duration, scope string) (*data.Token, error) {
 	token := &data.Token{
@@ -182,11 +155,6 @@ func newFakePermissionStore() *fakePermissionStore {
 
 func (s *fakePermissionStore) GetAllForUser(userID int64) (data.Permissions, error) {
 	return s.perms[userID], nil
-}
-
-func (s *fakePermissionStore) AddForUser(userID int64, codes ...string) error {
-	s.perms[userID] = append(s.perms[userID], codes...)
-	return nil
 }
 
 type recordedEmail struct {

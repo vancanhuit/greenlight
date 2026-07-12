@@ -32,13 +32,3 @@ func (m PermissionModel) GetAllForUser(userID int64) (Permissions, error) {
 	}
 	return Permissions(codes), nil
 }
-
-func (m PermissionModel) AddForUser(userID int64, codes ...string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	return m.q.AddPermissionsForUser(ctx, db.AddPermissionsForUserParams{
-		UserID:  userID,
-		Column2: codes,
-	})
-}
