@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"expvar"
 	"flag"
 	"fmt"
@@ -44,6 +45,12 @@ type config struct {
 	cors struct {
 		trustedOrigins []string
 	}
+	tls struct {
+		certFile     string
+		keyFile      string
+		clientCAFile string
+		trustProxy   bool
+	}
 }
 
 type application struct {
@@ -55,6 +62,16 @@ type application struct {
 	permissions PermissionStore
 	mailer      Emailer
 	wg          sync.WaitGroup
+}
+
+func validateTLSConfig(certFile, keyFile, clientCAFile string) error {
+	if (certFile == "") != (keyFile == "") {
+		return errors.New("both -tls-cert-file and -tls-key-file must be set together")
+	}
+	if clientCAFile != "" && certFile == "" {
+		return errors.New("-tls-client-ca-file requires -tls-cert-file and -tls-key-file")
+	}
+	return nil
 }
 
 func openDB(cfg config) (*pgxpool.Pool, error) {
@@ -114,6 +131,11 @@ func main() {
 		return nil
 	})
 
+	flag.StringVar(&cfg.tls.certFile, "tls-cert-file", "", "TLS certificate file (enables direct TLS)")
+	flag.StringVar(&cfg.tls.keyFile, "tls-key-file", "", "TLS private key file")
+	flag.StringVar(&cfg.tls.clientCAFile, "tls-client-ca-file", "", "CA file to verify client certificates (enables mTLS)")
+	flag.BoolVar(&cfg.tls.trustProxy, "trust-proxy", false, "Trust X-Forwarded-For/X-Real-IP headers for client IP")
+
 	displayVersion := flag.Bool("version", false, "Display version and exit")
 
 	flag.Parse()
@@ -121,6 +143,11 @@ func main() {
 	if *displayVersion {
 		fmt.Printf("Version: \t%s\n", version)
 		os.Exit(0)
+	}
+
+	if err := validateTLSConfig(cfg.tls.certFile, cfg.tls.keyFile, cfg.tls.clientCAFile); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
