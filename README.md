@@ -36,7 +36,9 @@ reverse proxy (Caddy). TLS behaviour is controlled by four flags:
 | `-tls-client-ca-file` | CA bundle used to require & verify client certs (mTLS) |
 | `-trust-proxy` | Trust `X-Forwarded-*` headers from an upstream proxy |
 
-All HTTPS topologies are exposed on host port **8443**. Run
+All HTTPS topologies are exposed on host port **8443** and share the
+`postgres-dev`/`mailpit` services, so they are **mutually exclusive** — run one
+at a time (tear down the current stack before starting another). Run
 `mise run certs:setup` once first to generate the local mkcert certificates,
 then start the topology you want:
 

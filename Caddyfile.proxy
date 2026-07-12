@@ -1,4 +1,4 @@
 localhost:8443 {
-    tls /certs/localhost.pem /certs/localhost-key.pem
-    reverse_proxy api-proxy:8000
+	tls /certs/localhost.pem /certs/localhost-key.pem
+	reverse_proxy api-proxy:8000
 }

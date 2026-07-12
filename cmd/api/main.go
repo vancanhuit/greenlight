@@ -134,7 +134,7 @@ func main() {
 	flag.StringVar(&cfg.tls.certFile, "tls-cert-file", "", "TLS certificate file (enables direct TLS)")
 	flag.StringVar(&cfg.tls.keyFile, "tls-key-file", "", "TLS private key file")
 	flag.StringVar(&cfg.tls.clientCAFile, "tls-client-ca-file", "", "CA file to verify client certificates (enables mTLS)")
-	flag.BoolVar(&cfg.tls.trustProxy, "trust-proxy", false, "Trust X-Forwarded-For/X-Real-IP headers for client IP")
+	flag.BoolVar(&cfg.tls.trustProxy, "trust-proxy", false, "Trust X-Forwarded-For/X-Real-IP headers for client IP (only enable behind a trusted proxy)")
 
 	displayVersion := flag.Bool("version", false, "Display version and exit")
 
