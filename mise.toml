@@ -105,6 +105,7 @@ run = [
     "mkdir -p .certs",
     "mkcert -install",
     "mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1 api-tls api-mtls",
+    "mkcert -client -cert-file .certs/client.pem -key-file .certs/client-key.pem localhost",
     "mkcert -cert-file .certs/mailpit.pem -key-file .certs/mailpit-key.pem mailpit",
     'cp "$(mkcert -CAROOT)/rootCA.pem" .certs/rootCA.pem',
 ]

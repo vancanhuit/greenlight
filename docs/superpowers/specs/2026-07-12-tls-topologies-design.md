@@ -13,8 +13,11 @@ refine the Compose stacks so each topology is runnable locally:
    binary runs plain HTTP. The binary is proxy-aware and preserves the real
    client IP.
 3. **Mutual TLS (mTLS)** — both the reverse proxy and the binary run TLS; the
-   binary authenticates the proxy via a TLS client certificate. The existing
-   mkcert server certificate / shared CA is reused for this mode.
+   binary authenticates the proxy via a TLS client certificate. A dedicated
+   client cert is minted via `mkcert -client` (`client.pem`/`client-key.pem`)
+   because a ServerAuth-only leaf cannot be reused for client auth (Go requires
+   the clientAuth EKU); it still chains to `rootCA.pem`, which the binary
+   verifies via `-tls-client-ca-file`.
 
 ## Decisions
 
@@ -177,15 +180,16 @@ localhost:8443 {
         transport http {
             tls
             tls_trust_pool file /certs/rootCA.pem
-            tls_client_auth /certs/localhost.pem /certs/localhost-key.pem
+            tls_client_auth /certs/client.pem /certs/client-key.pem
             tls_server_name localhost
         }
     }
 }
 ```
 
-Caddy reuses `localhost.pem` as its client certificate (chains to `rootCA.pem`),
-matching the "reuse the TLS server certificate" requirement. `tls_server_name
+Caddy presents a dedicated client certificate (`client.pem`, minted via
+`mkcert -client`, chains to `rootCA.pem`). A ServerAuth-only leaf cannot be
+reused for client auth because Go requires the clientAuth EKU. `tls_server_name
 localhost` makes Caddy's upstream verification match the backend certificate's
 SAN.
 
@@ -197,11 +201,15 @@ matches the backend service hostnames:
 ```
 mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem \
     localhost 127.0.0.1 api-tls api-mtls
+mkcert -client -cert-file .certs/client.pem -key-file .certs/client-key.pem \
+    localhost
 ```
 
-No new certificate files are introduced — `localhost.pem` doubles as Caddy's
-mTLS client certificate. `rootCA.pem` is already copied by the existing task and
-serves as the binary's `--tls-client-ca-file`.
+A dedicated `client.pem` is minted via `mkcert -client` for Caddy's mTLS client
+certificate, because a ServerAuth-only leaf cannot be reused for client auth
+(Go requires the clientAuth EKU). It still chains to `rootCA.pem`, which is
+already copied by the existing task and serves as the binary's
+`--tls-client-ca-file`.
 
 ## 7. mise tasks (`mise.toml`)
 

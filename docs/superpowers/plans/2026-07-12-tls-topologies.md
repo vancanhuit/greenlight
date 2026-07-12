@@ -473,7 +473,7 @@ localhost:8443 {
         transport http {
             tls
             tls_trust_pool file /certs/rootCA.pem
-            tls_client_auth /certs/localhost.pem /certs/localhost-key.pem
+            tls_client_auth /certs/client.pem /certs/client-key.pem
             tls_server_name localhost
         }
     }
@@ -717,10 +717,15 @@ Expected: each exits 0 with no stderr. If `x-api-smtp` triggers a warning, delet
 
 - [ ] **Step 6: Update `mise.toml` certs and tasks**
 
-In `mise.toml`, change the `certs:setup` mkcert line to add backend SANs:
+In `mise.toml`, change the `certs:setup` mkcert line to add backend SANs, and
+mint a dedicated client cert for Caddy's mTLS client auth (a ServerAuth-only
+leaf cannot be reused for client auth because Go requires the clientAuth EKU;
+`client.pem` still chains to `rootCA.pem`, which the binary verifies via
+`-tls-client-ca-file`):
 
 ```
     "mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1 api-tls api-mtls",
+    "mkcert -client -cert-file .certs/client.pem -key-file .certs/client-key.pem localhost",
 ```
 
 Replace the `dev:up:https` task with:
