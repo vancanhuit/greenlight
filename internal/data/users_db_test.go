@@ -146,3 +146,81 @@ func TestActivateUserAtomic(t *testing.T) {
 		t.Error("expected user to be activated in the store")
 	}
 }
+
+func TestActivateUserEditConflict(t *testing.T) {
+	requireDB(t)
+	truncate(t, "users")
+
+	models := data.NewModels(testPool)
+	user := newTestUser(t, "conflict@example.com")
+	user.Activated = false
+
+	if _, err := models.RegisterUser(user, []string{"movies:read"}, time.Hour, data.ScopeActivation); err != nil {
+		t.Fatalf("RegisterUser: %v", err)
+	}
+
+	// Simulate a stale write: bump the in-memory version past the stored row.
+	user.Version++
+	user.Activated = true
+	if err := models.ActivateUser(user, data.ScopeActivation); !errors.Is(err, data.ErrEditConflict) {
+		t.Fatalf("expected ErrEditConflict, got %v", err)
+	}
+
+	// The rolled-back activation must not have persisted the activated state.
+	got, err := models.Users.GetByEmail("conflict@example.com")
+	if err != nil {
+		t.Fatalf("GetByEmail: %v", err)
+	}
+	if got.Activated {
+		t.Error("expected user to remain unactivated after edit conflict")
+	}
+}
+
+func TestRegisterUserNoPermissions(t *testing.T) {
+	requireDB(t)
+	truncate(t, "users")
+
+	models := data.NewModels(testPool)
+	user := newTestUser(t, "noperm@example.com")
+	user.Activated = false
+
+	token, err := models.RegisterUser(user, nil, time.Hour, data.ScopeActivation)
+	if err != nil {
+		t.Fatalf("RegisterUser: %v", err)
+	}
+	if user.ID == 0 {
+		t.Fatal("expected user ID to be set")
+	}
+	if token == nil || token.Plaintext == "" {
+		t.Fatal("expected a token to be returned")
+	}
+
+	perms, err := models.Permissions.GetAllForUser(user.ID)
+	if err != nil {
+		t.Fatalf("GetAllForUser: %v", err)
+	}
+	if len(perms) != 0 {
+		t.Errorf("expected no permissions, got %v", perms)
+	}
+}
+
+func TestGetForTokenExpired(t *testing.T) {
+	requireDB(t)
+	truncate(t, "users")
+
+	models := data.NewModels(testPool)
+	user := newTestUser(t, "expired@example.com")
+	if err := models.Users.Insert(user); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	// A token that expired an hour ago must not resolve to its user.
+	token, err := models.Tokens.New(user.ID, -time.Hour, data.ScopeActivation)
+	if err != nil {
+		t.Fatalf("Tokens.New: %v", err)
+	}
+
+	if _, err := models.Users.GetForToken(data.ScopeActivation, token.Plaintext); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Fatalf("expected ErrRecordNotFound for expired token, got %v", err)
+	}
+}

@@ -42,6 +42,38 @@ func TestMovieGetNotFound(t *testing.T) {
 	}
 }
 
+func TestMovieUpdate(t *testing.T) {
+	requireDB(t)
+	truncate(t, "movies")
+
+	models := data.NewModels(testPool)
+	movie := &data.Movie{Title: "Blade Runner", Year: 1982, Runtime: 117, Genres: []string{"sci-fi"}}
+	if err := models.Movies.Insert(movie); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	originalVersion := movie.Version
+
+	movie.Title = "Blade Runner: The Final Cut"
+	movie.Runtime = 118
+	if err := models.Movies.Update(movie); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if movie.Version != originalVersion+1 {
+		t.Fatalf("expected version %d, got %d", originalVersion+1, movie.Version)
+	}
+
+	got, err := models.Movies.Get(movie.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Title != "Blade Runner: The Final Cut" || got.Runtime != 118 {
+		t.Fatalf("unexpected movie after update: %+v", got)
+	}
+	if got.Version != movie.Version {
+		t.Fatalf("stored version %d, want %d", got.Version, movie.Version)
+	}
+}
+
 func TestMovieUpdateEditConflict(t *testing.T) {
 	requireDB(t)
 	truncate(t, "movies")
