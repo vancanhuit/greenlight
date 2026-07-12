@@ -19,11 +19,11 @@ run = "go run ./cmd/api -db-dsn=$GREENLIGHT_DB_DSN"
 [tasks.build]
 description = "Build the API binary"
 depends = ["sqlc"]
-run = 'go build -ldflags="-s -X main.version=$VERSION" -o=./bin/api ./cmd/api'
+run = 'go build -ldflags="-s -w -X main.version=$VERSION" -o=./bin/api ./cmd/api'
 
 [tasks.test]
 description = "Run unit tests (no DB)"
-run = "go test -race ./..."
+run = "go test -cover -race -v ./..."
 
 [tasks."test:db"]
 description = "Run tests including DB integration tests"
@@ -35,24 +35,20 @@ run = "go test -cover -race -v ./..."
 [tasks."lint:fmt"]
 description = "Run golangci-lint with formatting checks"
 run = [
-  'golangci-lint fmt -v ./cmd/... ./internal/... ./migrations/...',
-  'git diff --exit-code cmd internal migrations',
+    'golangci-lint fmt -v ./cmd/... ./internal/... ./migrations/...',
+    'git diff --exit-code cmd internal migrations',
 ]
 
 [tasks.lint]
 description = "Run linters"
 run = [
-  'go vet ./...',
-  'golangci-lint run -v ./cmd/... ./internal/... ./migrations/...',
+    'go vet ./...',
+    'golangci-lint run -v ./cmd/... ./internal/... ./migrations/...',
 ]
 
 [tasks.audit]
 description = "Verify modules and vendored deps are in sync"
-run = [
-  'go mod verify',
-  'go mod vendor',
-  'git diff --exit-code vendor',
-]
+run = ['go mod verify', 'go mod vendor', 'git diff --exit-code vendor']
 
 [tasks.sqlc]
 description = "Generate sqlc code"
@@ -85,22 +81,22 @@ run = "docker compose --profile test up -d --wait"
 
 [tasks."db:down"]
 description = "Stop the test Postgres stack"
-run = "docker compose --profile test down"
+run = "docker compose --profile test down -v"
 
 [tasks."dev:up"]
 description = "Start dev stack (plain HTTP)"
-run = "docker compose --profile dev up -d"
+run = "docker compose --profile dev up -d --build --wait"
 
 [tasks."dev:up:https"]
 description = "Start dev stack (HTTPS via mkcert + caddy)"
-run = "docker compose --profile dev-https up -d"
+run = "docker compose --profile dev-https up -d --build --wait"
 
 [tasks."certs:setup"]
 description = "Generate local TLS certs with mkcert"
 run = [
-  "mkdir -p .certs",
-  "mkcert -install",
-  "mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1",
-  "mkcert -cert-file .certs/mailpit.pem -key-file .certs/mailpit-key.pem mailpit",
-  'cp "$(mkcert -CAROOT)/rootCA.pem" .certs/rootCA.pem',
+    "mkdir -p .certs",
+    "mkcert -install",
+    "mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1",
+    "mkcert -cert-file .certs/mailpit.pem -key-file .certs/mailpit-key.pem mailpit",
+    'cp "$(mkcert -CAROOT)/rootCA.pem" .certs/rootCA.pem',
 ]
