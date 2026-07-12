@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,7 +14,35 @@ import (
 	"time"
 )
 
+func (app *application) tlsConfig() (*tls.Config, error) {
+	if app.config.tls.certFile == "" {
+		return nil, nil
+	}
+
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+
+	if app.config.tls.clientCAFile != "" {
+		caPEM, err := os.ReadFile(app.config.tls.clientCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("read client CA file: %w", err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("no valid certificates in %s", app.config.tls.clientCAFile)
+		}
+		cfg.ClientCAs = pool
+		cfg.ClientAuth = tls.RequireAndVerifyClientCert
+	}
+
+	return cfg, nil
+}
+
 func (app *application) serve() error {
+	tlsCfg, err := app.tlsConfig()
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", app.config.port),
 		Handler:      app.routes(),
@@ -20,6 +50,7 @@ func (app *application) serve() error {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		ErrorLog:     slog.NewLogLogger(app.logger.Handler(), slog.LevelError),
+		TLSConfig:    tlsCfg,
 	}
 
 	shutdownError := make(chan error)
@@ -49,7 +80,11 @@ func (app *application) serve() error {
 
 	app.logger.Info("starting server", "addr", srv.Addr, "env", app.config.env)
 
-	err := srv.ListenAndServe()
+	if tlsCfg != nil {
+		err = srv.ListenAndServeTLS(app.config.tls.certFile, app.config.tls.keyFile)
+	} else {
+		err = srv.ListenAndServe()
+	}
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

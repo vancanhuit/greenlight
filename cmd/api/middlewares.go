@@ -4,6 +4,7 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +17,17 @@ import (
 	"github.com/vancanhuit/greenlight/internal/validator"
 	"golang.org/x/time/rate"
 )
+
+func (app *application) clientIP(r *http.Request) string {
+	if app.config.tls.trustProxy {
+		return realip.FromRequest(r)
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
 
 func (app *application) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +70,7 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if app.config.limiter.enabled {
-			ip := realip.FromRequest(r)
+			ip := app.clientIP(r)
 			mu.Lock()
 			if _, ok := clients[ip]; !ok {
 				clients[ip] = &client{
