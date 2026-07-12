@@ -2,7 +2,7 @@
 task.run_auto_install = false
 
 [tools]
-go = "1.26.4"
+go = "1.26.5"
 sqlc = "1.31.1"
 "aqua:pressly/goose" = "3.27.2"
 golangci-lint = "2.12.2"
