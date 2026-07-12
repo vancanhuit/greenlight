@@ -16,6 +16,10 @@ x-api-base: &api-base
         dockerfile: Dockerfile
     environment:
         GREENLIGHT_DB_DSN: postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable
+        GREENLIGHT_SMTP_HOST: mailpit
+        GREENLIGHT_SMTP_USERNAME: dev
+        GREENLIGHT_SMTP_PASSWORD: dev
+        GREENLIGHT_SMTP_SENDER: "Greenlight <no-reply@greenlight.local>"
         SSL_CERT_FILE: /certs/rootCA.pem
     volumes:
         - ./.certs:/certs:ro
@@ -24,8 +28,6 @@ x-caddy-base: &caddy-base
     image: caddy:2
     ports:
         - "8443:8443"
-    volumes:
-        - ./.certs:/certs:ro
 
 services:
     postgres-dev:
@@ -64,12 +66,7 @@ services:
         profiles: ["dev"]
         command:
             - "-port=8000"
-            - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
-            - "-smtp-host=mailpit"
             - "-smtp-port=1025"
-            - "-smtp-username=dev"
-            - "-smtp-password=dev"
-            - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
         ports:
             - "8000:8000"
         depends_on:
@@ -85,12 +82,7 @@ services:
         profiles: ["dev-tls"]
         command:
             - "-port=8443"
-            - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
-            - "-smtp-host=mailpit"
             - "-smtp-port=1025"
-            - "-smtp-username=dev"
-            - "-smtp-password=dev"
-            - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
             - "-tls-cert-file=/certs/localhost.pem"
             - "-tls-key-file=/certs/localhost-key.pem"
         ports:
@@ -108,12 +100,7 @@ services:
         profiles: ["dev-proxy"]
         command:
             - "-port=8000"
-            - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
-            - "-smtp-host=mailpit"
             - "-smtp-port=1025"
-            - "-smtp-username=dev"
-            - "-smtp-password=dev"
-            - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
             - "-trust-proxy"
         depends_on:
             postgres-dev:
@@ -128,12 +115,7 @@ services:
         profiles: ["dev-mtls"]
         command:
             - "-port=8000"
-            - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
-            - "-smtp-host=mailpit"
             - "-smtp-port=1025"
-            - "-smtp-username=dev"
-            - "-smtp-password=dev"
-            - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
             - "-tls-cert-file=/certs/localhost.pem"
             - "-tls-key-file=/certs/localhost-key.pem"
             - "-tls-client-ca-file=/certs/rootCA.pem"
