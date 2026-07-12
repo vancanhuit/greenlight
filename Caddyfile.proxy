@@ -1,4 +1,4 @@
-localhost {
+localhost:8443 {
     tls /certs/localhost.pem /certs/localhost-key.pem
-    reverse_proxy api-https:8000
+    reverse_proxy api-proxy:8000
 }

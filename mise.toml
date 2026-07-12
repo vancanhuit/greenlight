@@ -87,16 +87,24 @@ run = "docker compose --profile test down -v"
 description = "Start dev stack (plain HTTP)"
 run = "docker compose --profile dev up -d --build --wait"
 
-[tasks."dev:up:https"]
-description = "Start dev stack (HTTPS via mkcert + caddy)"
-run = "docker compose --profile dev-https up -d --build --wait"
+[tasks."dev:up:tls"]
+description = "Start dev stack (direct TLS in binary)"
+run = "docker compose --profile dev-tls up -d --build --wait"
+
+[tasks."dev:up:proxy"]
+description = "Start dev stack (TLS terminated at Caddy)"
+run = "docker compose --profile dev-proxy up -d --build --wait"
+
+[tasks."dev:up:mtls"]
+description = "Start dev stack (mutual TLS between Caddy and binary)"
+run = "docker compose --profile dev-mtls up -d --build --wait"
 
 [tasks."certs:setup"]
 description = "Generate local TLS certs with mkcert"
 run = [
     "mkdir -p .certs",
     "mkcert -install",
-    "mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1",
+    "mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1 api-tls api-mtls",
     "mkcert -cert-file .certs/mailpit.pem -key-file .certs/mailpit-key.pem mailpit",
     'cp "$(mkcert -CAROOT)/rootCA.pem" .certs/rootCA.pem',
 ]

@@ -20,10 +20,17 @@ x-api-base: &api-base
     volumes:
         - ./.certs:/certs:ro
 
+x-caddy-base: &caddy-base
+    image: caddy:2
+    ports:
+        - "8443:8443"
+    volumes:
+        - ./.certs:/certs:ro
+
 services:
     postgres-dev:
         <<: *pg-base
-        profiles: ["dev", "dev-https"]
+        profiles: ["dev", "dev-tls", "dev-proxy", "dev-mtls"]
         environment:
             POSTGRES_USER: dev
             POSTGRES_PASSWORD: dev
@@ -34,7 +41,9 @@ services:
             - pgdata:/var/lib/postgresql
         networks:
             - dev
-            - dev-https
+            - dev-tls
+            - dev-proxy
+            - dev-mtls
 
     postgres-test:
         <<: *pg-base
@@ -54,8 +63,8 @@ services:
         <<: *api-base
         profiles: ["dev"]
         command:
-            - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
             - "-port=8000"
+            - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
             - "-smtp-host=mailpit"
             - "-smtp-port=1025"
             - "-smtp-username=dev"
@@ -71,42 +80,98 @@ services:
         networks:
             - dev
 
-    api-https:
+    api-tls:
         <<: *api-base
-        profiles: ["dev-https"]
+        profiles: ["dev-tls"]
         command:
+            - "-port=8443"
             - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
-            - "-port=8000"
             - "-smtp-host=mailpit"
             - "-smtp-port=1025"
             - "-smtp-username=dev"
             - "-smtp-password=dev"
             - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
+            - "-tls-cert-file=/certs/localhost.pem"
+            - "-tls-key-file=/certs/localhost-key.pem"
+        ports:
+            - "8443:8443"
         depends_on:
             postgres-dev:
                 condition: service_healthy
             mailpit:
                 condition: service_started
         networks:
-            - dev-https
+            - dev-tls
 
-    caddy:
-        image: caddy:2
-        profiles: ["dev-https"]
-        ports:
-            - "443:443"
+    api-proxy:
+        <<: *api-base
+        profiles: ["dev-proxy"]
+        command:
+            - "-port=8000"
+            - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
+            - "-smtp-host=mailpit"
+            - "-smtp-port=1025"
+            - "-smtp-username=dev"
+            - "-smtp-password=dev"
+            - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
+            - "-trust-proxy"
+        depends_on:
+            postgres-dev:
+                condition: service_healthy
+            mailpit:
+                condition: service_started
+        networks:
+            - dev-proxy
+
+    api-mtls:
+        <<: *api-base
+        profiles: ["dev-mtls"]
+        command:
+            - "-port=8000"
+            - "-db-dsn=postgres://dev:dev@postgres-dev:5432/greenlight?sslmode=disable"
+            - "-smtp-host=mailpit"
+            - "-smtp-port=1025"
+            - "-smtp-username=dev"
+            - "-smtp-password=dev"
+            - "-smtp-sender=Greenlight <no-reply@greenlight.local>"
+            - "-tls-cert-file=/certs/localhost.pem"
+            - "-tls-key-file=/certs/localhost-key.pem"
+            - "-tls-client-ca-file=/certs/rootCA.pem"
+            - "-trust-proxy"
+        depends_on:
+            postgres-dev:
+                condition: service_healthy
+            mailpit:
+                condition: service_started
+        networks:
+            - dev-mtls
+
+    caddy-proxy:
+        <<: *caddy-base
+        profiles: ["dev-proxy"]
         volumes:
             - ./.certs:/certs:ro
-            - ./Caddyfile:/etc/caddy/Caddyfile:ro
+            - ./Caddyfile.proxy:/etc/caddy/Caddyfile:ro
         depends_on:
-            - api-https
+            - api-proxy
         networks:
-            - dev-https
+            - dev-proxy
+
+    caddy-mtls:
+        <<: *caddy-base
+        profiles: ["dev-mtls"]
+        volumes:
+            - ./.certs:/certs:ro
+            - ./Caddyfile.mtls:/etc/caddy/Caddyfile:ro
+        depends_on:
+            - api-mtls
+        networks:
+            - dev-mtls
 
     mailpit:
         image: axllent/mailpit:v1.30.4
         restart: unless-stopped
-        profiles: ["dev", "dev-https"]
+        profiles: ["dev", "dev-tls", "dev-proxy", "dev-mtls"]
         environment:
             MP_SMTP_AUTH_FILE: /etc/mailpit-auth.conf
             MP_SMTP_AUTH_ALLOW_INSECURE: 1
@@ -119,12 +184,16 @@ services:
             - "127.0.0.1:8025:8025"
         networks:
             - dev
-            - dev-https
+            - dev-tls
+            - dev-proxy
+            - dev-mtls
 
 volumes:
     pgdata:
 
 networks:
     dev:
-    dev-https:
+    dev-tls:
+    dev-proxy:
+    dev-mtls:
     test:

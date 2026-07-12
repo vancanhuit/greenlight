@@ -1,0 +1,11 @@
+localhost:8443 {
+    tls /certs/localhost.pem /certs/localhost-key.pem
+    reverse_proxy api-mtls:8000 {
+        transport http {
+            tls
+            tls_trust_pool file /certs/rootCA.pem
+            tls_client_auth /certs/localhost.pem /certs/localhost-key.pem
+            tls_server_name localhost
+        }
+    }
+}
